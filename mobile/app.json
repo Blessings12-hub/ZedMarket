@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "ZedMarket",
+    "slug": "zedmarket",
+    "scheme": "zedmarket",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.zedmarket.app"
+    },
+    "android": {
+      "package": "com.zedmarket.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "ZedMarket needs your photos so you can add pictures to your listings."
+        }
+      ]
+    ]
+  }
+}
