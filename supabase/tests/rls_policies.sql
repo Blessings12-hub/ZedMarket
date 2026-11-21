@@ -63,13 +63,40 @@ insert into public.admin_roles (user_id, role) values ('00000000-0000-0000-0000-
 -- 3. Seller creates one draft and one published listing.
 select zm_test.act_as('00000000-0000-0000-0000-00000000000a');
 
-insert into public.listings (id, category_id, location_id, title, description, price_zmw, condition)
-select '10000000-0000-0000-0000-000000000001', c.id, l.id, 'Test phone', 'Works well', 500, 'used_good'
+-- Users insert only the content columns. The id and the seller come from the database,
+-- exactly as they do when the app posts a listing.
+insert into public.listings (category_id, location_id, title, description, price_zmw, condition)
+select c.id, l.id, 'Test phone', 'Works well', 500, 'used_good'
   from public.categories c, public.locations l where c.slug = 'electronics' and l.area = 'Kabulonga';
 
-insert into public.listings (id, category_id, location_id, title, description, price_zmw, condition)
-select '10000000-0000-0000-0000-000000000002', c.id, l.id, 'Hidden draft', 'Not published', 300, 'new'
+insert into public.listings (category_id, location_id, title, description, price_zmw, condition)
+select c.id, l.id, 'Hidden draft', 'Not published', 300, 'new'
   from public.categories c, public.locations l where c.slug = 'electronics' and l.area = 'Kabulonga';
+
+do $$
+begin
+  if (select count(*) from public.listings where seller_id = '00000000-0000-0000-0000-00000000000a') <> 2 then
+    raise exception 'The seller should be filled in from the signed-in user';
+  end if;
+end $$;
+
+-- A user cannot choose the id or claim to be another seller.
+select zm_test.expect_error(
+  $$insert into public.listings (id, category_id, location_id, title, description, price_zmw, condition)
+    select gen_random_uuid(), c.id, l.id, 'x', 'x', 1, 'new'
+      from public.categories c, public.locations l limit 1$$,
+  'choosing a listing id');
+select zm_test.expect_error(
+  $$insert into public.listings (seller_id, category_id, location_id, title, description, price_zmw, condition)
+    select '00000000-0000-0000-0000-00000000000b', c.id, l.id, 'x', 'x', 1, 'new'
+      from public.categories c, public.locations l limit 1$$,
+  'posting as another seller');
+
+-- Give the two listings fixed ids so the rest of this file can refer to them.
+select zm_test.act_as_admin();
+update public.listings set id = '10000000-0000-0000-0000-000000000001' where title = 'Test phone';
+update public.listings set id = '10000000-0000-0000-0000-000000000002' where title = 'Hidden draft';
+select zm_test.act_as('00000000-0000-0000-0000-00000000000a');
 
 insert into public.listing_images (listing_id, storage_path)
 values ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a/phone.jpg');
