@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { canMove, etaLabel, isFinished, isInProgress } from './delivery';
 import { validateListing, type ListingForm } from './listing';
 import { formatKwacha, parsePrice } from './money';
-import { cleanSearchTerm, searchFilter } from './search';
+import { cleanSearchTerm, describeSearch, searchFilter } from './search';
 
 test('formatKwacha', () => {
   assert.equal(formatKwacha(2350), 'K2,350');
@@ -83,4 +83,15 @@ test('an arrival time needs a source and is never shown once finished', () => {
   assert.equal(etaLabel({ status: 'delivered', estimated_arrival: iso, estimated_arrival_source: 'provider' }), null);
   const label = etaLabel({ status: 'in_transit', estimated_arrival: iso, estimated_arrival_source: 'provider' });
   assert.ok(label?.startsWith('Estimated arrival around'));
+});
+
+test('saved search names read like what the person chose', () => {
+  assert.equal(
+    describeSearch({ term: ' phone ', categoryName: 'Electronics', areaName: 'Kabulonga', maxPrice: 600 }),
+    'phone · Electronics · Kabulonga · up to K600',
+  );
+  assert.equal(describeSearch({ term: '', minPrice: 100, maxPrice: 300 }), 'K100 to K300');
+  assert.equal(describeSearch({ term: '', minPrice: 100 }), 'from K100');
+  assert.equal(describeSearch({ term: '' }), 'My search');
+  assert.equal(describeSearch({ term: 'x'.repeat(200) }).length <= 60, true);
 });
