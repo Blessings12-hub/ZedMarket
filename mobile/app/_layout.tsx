@@ -4,9 +4,11 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
+import { isPublicRoute } from '../src/domain/routes';
 import { colors } from '../src/theme';
 
-// Signed-out visitors only see the (auth) screens; signed-in users never do.
+// Signed-out visitors can browse, open listings and seller pages, and see the sign-in screens.
+// Anything that needs an account sends them to sign in. Signed-in users never see the (auth) screens.
 function AuthGate() {
   const { session, loading } = useAuth();
   const segments = useSegments();
@@ -15,7 +17,7 @@ function AuthGate() {
   useEffect(() => {
     if (loading) return;
     const inAuthGroup = segments[0] === '(auth)';
-    if (!session && !inAuthGroup) router.replace('/sign-in');
+    if (!session && !isPublicRoute(segments)) router.replace('/sign-in');
     else if (session && inAuthGroup) router.replace('/');
   }, [session, loading, segments, router]);
 
@@ -40,7 +42,8 @@ function AuthGate() {
       <Stack.Screen name="verify/identity" options={{ title: 'Identity check' }} />
       <Stack.Screen name="verify/business" options={{ title: 'Business' }} />
       <Stack.Screen name="review/[orderId]" options={{ title: 'Leave a review' }} />
-      <Stack.Screen name="seller/[id]" options={{ title: 'Reviews' }} />
+      <Stack.Screen name="seller/[id]" options={{ title: 'Seller' }} />
+      <Stack.Screen name="alerts" options={{ title: 'Saved searches and alerts' }} />
       <Stack.Screen name="dispute/open" options={{ title: 'Report a problem' }} />
       <Stack.Screen name="dispute/[id]" options={{ title: 'Dispute' }} />
       <Stack.Screen name="appeal" options={{ title: 'Appeal a decision' }} />
