@@ -10,7 +10,7 @@ This repo is the working build of the plan in `ZedMarket_Business_Blueprint.pdf`
 
 Release 1 (the marketplace) is written. Release 2 and 3 exist only as database tables with security rules.
 
-**Nothing here has been run end to end.** The SQL has not been executed on a real database, and the app has not been opened on a phone. Only the plain TypeScript in `mobile/src/domain` has been type-checked and tested. Expect to fix errors on first run. Do the first run in a test Supabase project, not with real users.
+**Tested so far:** the migrations apply cleanly and both security test files pass on a local PostgreSQL 16 server, the whole app typechecks, and the logic tests pass. **Not tested yet:** a real Supabase project, the app on a phone, sign-up emails, and any end-to-end user journey. Do the first real run in a staging project, not with real users. See `docs/TESTING.md`.
 
 ## Layout
 
@@ -29,7 +29,7 @@ docs/
 
 1. Create a project at supabase.com (a free project is fine for testing).
 2. In the SQL editor, run each file in `supabase/migrations/` in order: 0001, 0002, 0003, 0004, 0005, 0006, 0007. If one fails, stop and fix it before running the next.
-3. Run `supabase/tests/rls_policies.sql` the same way. It should finish without errors and undo itself. If it errors, a security rule is wrong; do not ship until it passes.
+3. Run `supabase/tests/rls_policies.sql` and then `supabase/tests/trust_flows.sql` the same way. Each should finish without errors and undo itself. If one errors, a security rule is wrong; do not ship until both pass. `docs/TESTING.md` explains how to run them on your own computer or in GitHub Actions.
 4. In Authentication settings, keep email sign-in on and turn on leaked-password protection and rate limits if your plan offers them.
 5. In `mobile/`, copy `.env.example` to `.env` and fill in the project URL and the anon (public) key. Never put the service-role key in this file.
 6. From `mobile/`:
