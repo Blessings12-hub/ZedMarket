@@ -6,7 +6,7 @@ import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Notice, SectionTitle, VerifiedBadge } from '../../src/components/ui';
 import { formatKwacha } from '../../src/domain/money';
 import { fetchMyRoles } from '../../src/features/admin/api';
-import { fetchMyListings } from '../../src/features/listings/api';
+import { countUnreadAlerts, fetchMyListings } from '../../src/features/listings/api';
 import type { MyListing, VerificationLevel } from '../../src/features/listings/types';
 import { friendlyError } from '../../src/lib/errors';
 import { supabase } from '../../src/lib/supabase';
@@ -29,20 +29,23 @@ export default function AccountScreen() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [listings, setListings] = useState<MyListing[]>([]);
   const [isStaff, setIsStaff] = useState(false);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     if (!userId) return;
     try {
-      const [p, mine, roles] = await Promise.all([
+      const [p, mine, roles, unread] = await Promise.all([
         supabase.from('profiles').select('display_name, verification_level, account_state').eq('id', userId).single(),
         fetchMyListings(userId),
         fetchMyRoles(userId).catch(() => []),
+        countUnreadAlerts().catch(() => 0),
       ]);
       if (p.error) throw p.error;
       setProfile(p.data as Profile);
       setListings(mine);
       setIsStaff(roles.length > 0);
+      setUnreadAlerts(unread);
       setError('');
     } catch (e) {
       setError(friendlyError(e));
@@ -79,6 +82,11 @@ export default function AccountScreen() {
       <Button title="Your orders" variant="secondary" onPress={() => router.push('/orders')} />
       <Button title="Get verified" variant="secondary" onPress={() => router.push('/verify')} />
       <Button title="Saved items" variant="secondary" onPress={() => router.push('/saved')} />
+      <Button
+        title={unreadAlerts > 0 ? `Saved searches and alerts (${unreadAlerts} new)` : 'Saved searches and alerts'}
+        variant="secondary"
+        onPress={() => router.push('/alerts')}
+      />
       {isStaff ? <Button title="Staff tools" variant="secondary" onPress={() => router.push('/admin')} /> : null}
 
       <SectionTitle>My listings</SectionTitle>
