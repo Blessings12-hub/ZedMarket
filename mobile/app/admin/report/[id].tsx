@@ -78,7 +78,7 @@ export default function ReportDetail() {
 
       let subject: string | null = null;
       if (r.targetType === 'listing') {
-        const l = await fetchListing(r.targetId);
+        const l = await fetchListing(r.targetId, true);
         setListing(l);
         subject = l.sellerId;
       } else if (r.targetType === 'review') {
