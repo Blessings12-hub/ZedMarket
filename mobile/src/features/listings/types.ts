@@ -35,6 +35,39 @@ export type SellerStats = {
   completedOrders: number;
 };
 
+export type SellerPage = {
+  sellerId: string;
+  displayName: string;
+  bio: string | null;
+  level: VerificationLevel;
+  memberSince: string;
+  averageRating: number;
+  reviewCount: number;
+  completedOrders: number;
+  activeListings: number;
+};
+
+export type SavedSearch = {
+  id: string;
+  name: string;
+  term: string | null;
+  categoryId: number | null;
+  locationId: number | null;
+  minPrice: number | null;
+  maxPrice: number | null;
+  conditions: ItemCondition[];
+};
+
+export type ListingAlert = {
+  id: string;
+  listingId: string;
+  searchName: string;
+  title: string;
+  price: number;
+  createdAt: string;
+  read: boolean;
+};
+
 export type MyListing = {
   id: string;
   title: string;
