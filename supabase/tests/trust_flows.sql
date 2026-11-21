@@ -8,8 +8,13 @@
 
 begin;
 
-create schema zm_test;
-grant usage on schema zm_test to authenticated;
+create temp table zm_ids (
+  name text primary key,
+  id uuid
+) on commit drop;
+
+grant usage on schema pg_temp to authenticated;
+grant all privileges on table zm_ids to authenticated;
 
 create function zm_test.act_as(p_user uuid, p_aal text default 'aal1') returns void
 language plpgsql as $$
