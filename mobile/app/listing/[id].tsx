@@ -1,15 +1,28 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
+import { ListingRail } from '../../src/components/ListingRail';
 import { Button, Notice, SectionTitle, VerifiedBadge } from '../../src/components/ui';
 import { startConversation } from '../../src/features/chat/api';
-import { fetchListing, fetchSellerStats, isFavourite, setFavourite, setListingStatus } from '../../src/features/listings/api';
-import type { ListingDetail, SellerStats } from '../../src/features/listings/types';
+import { fetchMyRoles } from '../../src/features/admin/api';
+import {
+  featureListing,
+  fetchListing,
+  fetchSellerStats,
+  fetchSimilar,
+  isFavourite,
+  recordView,
+  setFavourite,
+  setListingStatus,
+  unfeatureListing,
+} from '../../src/features/listings/api';
+import type { ListingDetail, ListingSummary, SellerStats } from '../../src/features/listings/types';
 import { requestToBuy } from '../../src/features/orders/api';
 import { conditionLabel } from '../../src/domain/listing';
 import { formatKwacha } from '../../src/domain/money';
+import { listingLink, listingShareMessage, webBase } from '../../src/domain/share';
 import { friendlyError } from '../../src/lib/errors';
 import { listingImageUrl } from '../../src/lib/supabase';
 import { colors, radius, spacing } from '../../src/theme';
@@ -19,26 +32,37 @@ const PHOTO_WIDTH = Dimensions.get('window').width;
 export default function ListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { userId } = useAuth();
+  const { userId, session } = useAuth();
+  const signedIn = !!session;
 
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [stats, setStats] = useState<SellerStats | null>(null);
   const [saved, setSaved] = useState(false);
+  const [similar, setSimilar] = useState<ListingSummary[]>([]);
+  const [isModerator, setIsModerator] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const detail = await fetchListing(id);
+      const detail = await fetchListing(id, signedIn);
       setListing(detail);
-      const [sellerStats, fav] = await Promise.all([fetchSellerStats(detail.sellerId), isFavourite(id)]);
+      const [sellerStats, fav, more, roles] = await Promise.all([
+        fetchSellerStats(detail.sellerId).catch(() => null),
+        signedIn ? isFavourite(id).catch(() => false) : Promise.resolve(false),
+        fetchSimilar(id).catch(() => [] as ListingSummary[]),
+        userId ? fetchMyRoles(userId).catch(() => []) : Promise.resolve([]),
+      ]);
       setStats(sellerStats);
       setSaved(fav);
+      setSimilar(more);
+      setIsModerator(roles.some((r) => r === 'moderator'));
+      if (detail.status === 'active') recordView(id);
     } catch (e) {
       setError(friendlyError(e));
     }
-  }, [id]);
+  }, [id, signedIn, userId]);
 
   useEffect(() => {
     load();
@@ -62,7 +86,40 @@ export default function ListingScreen() {
   const isOwner = listing.sellerId === userId;
   const available = listing.status === 'active';
 
+  // Guests can look at everything; actions that need an account send them to sign in.
+  function needAccount(): boolean {
+    if (signedIn) return false;
+    Alert.alert('Sign in to continue', 'Create a free account or sign in to do that.', [
+      { text: 'Not now', style: 'cancel' },
+      { text: 'Sign in', onPress: () => router.push('/sign-in') },
+    ]);
+    return true;
+  }
+
+  async function shareListing() {
+    const link = listingLink(webBase(process.env.EXPO_PUBLIC_WEB_URL), listing!.id);
+    try {
+      await Share.share({ message: listingShareMessage({ title: listing!.title, price: listing!.price, link }) });
+    } catch {
+      // Closing the share sheet is not an error.
+    }
+  }
+
+  async function toggleFeatured(on: boolean) {
+    setBusy(true);
+    try {
+      if (on) await featureListing(listing!.id, 7);
+      else await unfeatureListing(listing!.id);
+      Alert.alert(on ? 'Featured for 7 days' : 'Removed from featured');
+    } catch (e) {
+      Alert.alert('Could not change featured status', friendlyError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function toggleSaved() {
+    if (needAccount()) return;
     const next = !saved;
     setSaved(next);
     try {
@@ -74,6 +131,7 @@ export default function ListingScreen() {
   }
 
   async function messageSeller() {
+    if (needAccount()) return;
     setBusy(true);
     try {
       const conversationId = await startConversation(listing!.id);
@@ -86,6 +144,7 @@ export default function ListingScreen() {
   }
 
   function askToBuy() {
+    if (needAccount()) return;
     Alert.alert(
       'Request to buy',
       `Send ${listing!.sellerName} a request to buy this for ${formatKwacha(listing!.price)}? You arrange collection and payment with the seller. Nothing is charged here.`,
@@ -143,7 +202,7 @@ export default function ListingScreen() {
         <Text style={styles.price}>{formatKwacha(listing.price)}</Text>
         <Text style={styles.title}>{listing.title}</Text>
         <Text style={styles.meta}>
-          {conditionLabel(listing.condition)} · {listing.categoryName} · {listing.area}, Lusaka
+          {conditionLabel(listing.condition)} · {listing.categoryName} · {listing.area}
         </Text>
         <Text style={styles.meta}>Posted {new Date(listing.postedAt).toLocaleDateString('en-ZM', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
 
@@ -170,7 +229,7 @@ export default function ListingScreen() {
           <SectionTitle>Seller</SectionTitle>
           <Text style={styles.sellerName}>{listing.sellerName}</Text>
           <VerifiedBadge level={listing.sellerLevel} />
-          <Button title="See reviews" variant="secondary" onPress={() => router.push(`/seller/${listing.sellerId}`)} />
+          <Button title="View seller page" variant="secondary" onPress={() => router.push(`/seller/${listing.sellerId}`)} />
           <Text style={styles.meta}>
             {stats && stats.reviewCount > 0
               ? `${stats.averageRating.toFixed(1)} out of 5 from ${stats.reviewCount} review${stats.reviewCount === 1 ? '' : 's'}`
@@ -188,6 +247,7 @@ export default function ListingScreen() {
             {listing.status === 'active' ? (
               <>
                 <Button title="Mark as sold" onPress={() => changeStatus('sold')} loading={busy} />
+                <Button title="Share" variant="secondary" onPress={shareListing} />
                 <Button title="Pause this listing" variant="secondary" onPress={() => changeStatus('unavailable')} disabled={busy} />
               </>
             ) : listing.status === 'unavailable' ? (
@@ -199,14 +259,26 @@ export default function ListingScreen() {
             <Button title="Request to buy" onPress={askToBuy} disabled={!available || busy} />
             <Button title="Message seller" variant="secondary" onPress={messageSeller} disabled={!available || busy} />
             <Button title={saved ? 'Remove from saved' : 'Save for later'} variant="secondary" onPress={toggleSaved} />
+            <Button title="Share" variant="secondary" onPress={shareListing} />
             <Button
               title="Report this listing"
               variant="danger"
-              onPress={() => router.push({ pathname: '/report', params: { targetType: 'listing', targetId: listing.id } })}
+              onPress={() => {
+                if (needAccount()) return;
+                router.push({ pathname: '/report', params: { targetType: 'listing', targetId: listing.id } });
+              }}
             />
+            {isModerator && available ? (
+              <>
+                <Button title="Feature for 7 days (staff)" variant="secondary" onPress={() => toggleFeatured(true)} disabled={busy} />
+                <Button title="Remove from featured (staff)" variant="secondary" onPress={() => toggleFeatured(false)} disabled={busy} />
+              </>
+            ) : null}
           </View>
         )}
       </View>
+
+      <ListingRail title="More like this" items={similar} />
     </ScrollView>
   );
 }

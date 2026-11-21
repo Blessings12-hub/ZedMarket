@@ -3,17 +3,20 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { MAX_PHOTOS, type ItemCondition } from '../../domain/listing';
 import { parsePrice } from '../../domain/money';
-import { searchFilter } from '../../domain/search';
+import { cleanSearchTerm } from '../../domain/search';
 import { supabase } from '../../lib/supabase';
 import type {
   Category,
   Filters,
   ListingDetail,
+  ListingAlert,
   ListingStatus,
   ListingSummary,
   Location,
   ModerationStatus,
   MyListing,
+  SavedSearch,
+  SellerPage,
   SellerStats,
   VerificationLevel,
 } from './types';
@@ -83,37 +86,112 @@ export function loadReferenceData() {
 // Browsing
 // ---------------------------------------------------------------------------
 
-export async function fetchListings(term: string, filters: Filters, page: number): Promise<ListingSummary[]> {
-  let query = supabase
-    .from('listings')
-    .select(SUMMARY_COLUMNS)
-    .eq('status', 'active')
-    .eq('moderation_status', 'approved');
+// Rows that come back from the public search functions and views (see migration 0008).
+type PublicRow = {
+  id: string;
+  title: string;
+  price_zmw: number;
+  condition: ItemCondition;
+  town: string;
+  area: string | null;
+  seller_id: string;
+  seller_name: string;
+  seller_level: VerificationLevel;
+  image_path: string | null;
+};
 
-  const text = searchFilter(term);
-  if (text) query = query.or(text);
-
-  if (filters.categoryId !== null) query = query.eq('category_id', filters.categoryId);
-  if (filters.locationId !== null) query = query.eq('location_id', filters.locationId);
-  if (filters.conditions.length > 0) query = query.in('condition', filters.conditions);
-  if (filters.verifiedOnly) query = query.neq('seller.verification_level', 'unverified');
-
-  const min = parsePrice(filters.minPrice);
-  const max = parsePrice(filters.maxPrice);
-  if (min !== null) query = query.gte('price_zmw', min);
-  if (max !== null) query = query.lte('price_zmw', max);
-
-  if (filters.sort === 'price_asc') query = query.order('price_zmw', { ascending: true });
-  else if (filters.sort === 'price_desc') query = query.order('price_zmw', { ascending: false });
-  else query = query.order('created_at', { ascending: false });
-
-  const from = page * PAGE_SIZE;
-  const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
-  if (error) throw error;
-  return (data as unknown as RawListing[]).map(toSummary);
+function fromPublic(row: PublicRow): ListingSummary {
+  return {
+    id: row.id,
+    title: row.title,
+    price: Number(row.price_zmw),
+    condition: row.condition,
+    area: row.area ?? row.town,
+    imagePath: row.image_path,
+    sellerName: row.seller_name,
+    sellerLevel: row.seller_level,
+  };
 }
 
-export async function fetchListing(id: string): Promise<ListingDetail> {
+async function rpcListings(fn: string, args: Record<string, unknown>): Promise<ListingSummary[]> {
+  const { data, error } = await supabase.rpc(fn, args);
+  if (error) throw error;
+  return (data as PublicRow[]).map(fromPublic);
+}
+
+// Works for guests and signed-in users alike. Wildcards in the search word are
+// handled by the database function, so the word is only trimmed and capped here.
+export function fetchListings(
+  term: string,
+  filters: Filters,
+  page: number,
+  sellerId: string | null = null,
+): Promise<ListingSummary[]> {
+  const cleaned = cleanSearchTerm(term);
+  return rpcListings('search_listings', {
+    p_term: cleaned.length >= 2 ? cleaned : null,
+    p_category_id: filters.categoryId,
+    p_location_id: filters.locationId,
+    p_conditions: filters.conditions,
+    p_min_price: parsePrice(filters.minPrice),
+    p_max_price: parsePrice(filters.maxPrice),
+    p_verified_only: filters.verifiedOnly,
+    p_sort: filters.sort,
+    p_limit: PAGE_SIZE,
+    p_offset: page * PAGE_SIZE,
+    p_seller_id: sellerId,
+  });
+}
+
+export const fetchFeatured = () => rpcListings('featured_listings_now', { p_limit: 10 });
+export const fetchTrending = () => rpcListings('trending_listings', { p_days: 7, p_limit: 10 });
+export const fetchNearby = (locationId: number) =>
+  rpcListings('nearby_listings', { p_location_id: locationId, p_limit: 10, p_offset: 0 });
+export const fetchSimilar = (listingId: string) => rpcListings('similar_listings', { p_listing_id: listingId, p_limit: 10 });
+export const fetchRecentlyViewed = () => rpcListings('recently_viewed', { p_limit: 20 });
+export const fetchRecommended = () => rpcListings('recommended_listings', { p_limit: 10 });
+
+export async function clearRecentlyViewed(): Promise<void> {
+  const { error } = await supabase.rpc('clear_recently_viewed');
+  if (error) throw error;
+}
+
+// Fire and forget: a failed view count must never get in the way of reading a listing.
+export function recordView(listingId: string): void {
+  void supabase.rpc('record_listing_view', { p_listing_id: listingId }).then(() => undefined, () => undefined);
+}
+
+// The public page first (works for guests). If nothing comes back and the person
+// is signed in, it may be their own paused, sold or unreviewed listing.
+export async function fetchListing(id: string, signedIn: boolean): Promise<ListingDetail> {
+  const { data, error } = await supabase.from('public_listing_details').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  if (data) {
+    const row = data as PublicRow & {
+      description: string;
+      warranty_info: string | null;
+      return_policy: string | null;
+      created_at: string;
+      category_name: string;
+      image_paths: string[];
+    };
+    return {
+      ...fromPublic({ ...row, image_path: row.image_paths[0] ?? null }),
+      description: row.description,
+      warrantyInfo: row.warranty_info,
+      returnPolicy: row.return_policy,
+      postedAt: row.created_at,
+      status: 'active',
+      categoryName: row.category_name,
+      sellerId: row.seller_id,
+      imagePaths: row.image_paths,
+    };
+  }
+  if (!signedIn) throw new Error('This listing is not available.');
+  return fetchOwnListing(id);
+}
+
+async function fetchOwnListing(id: string): Promise<ListingDetail> {
   const { data, error } = await supabase
     .from('listings')
     .select(
@@ -121,8 +199,9 @@ export async function fetchListing(id: string): Promise<ListingDetail> {
        category:categories(name)`,
     )
     .eq('id', id)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error('This listing is not available.');
 
   const row = data as unknown as RawListing & {
     description: string;
@@ -147,17 +226,124 @@ export async function fetchListing(id: string): Promise<ListingDetail> {
 }
 
 export async function fetchSellerStats(sellerId: string): Promise<SellerStats> {
-  const { data, error } = await supabase
-    .from('seller_stats')
-    .select('average_rating, review_count, completed_orders')
-    .eq('seller_id', sellerId)
-    .maybeSingle();
+  const page = await fetchSellerPage(sellerId);
+  return page
+    ? { averageRating: page.averageRating, reviewCount: page.reviewCount, completedOrders: page.completedOrders }
+    : { averageRating: 0, reviewCount: 0, completedOrders: 0 };
+}
+
+export async function fetchSellerPage(sellerId: string): Promise<SellerPage | null> {
+  const { data, error } = await supabase.from('public_seller_profiles').select('*').eq('seller_id', sellerId).maybeSingle();
   if (error) throw error;
+  if (!data) return null;
   return {
-    averageRating: Number(data?.average_rating ?? 0),
-    reviewCount: data?.review_count ?? 0,
-    completedOrders: data?.completed_orders ?? 0,
+    sellerId: data.seller_id,
+    displayName: data.display_name,
+    bio: data.bio,
+    level: data.verification_level,
+    memberSince: data.member_since,
+    averageRating: Number(data.average_rating ?? 0),
+    reviewCount: data.review_count ?? 0,
+    completedOrders: data.completed_orders ?? 0,
+    activeListings: data.active_listings ?? 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Moderators: feature a listing on the home page
+// ---------------------------------------------------------------------------
+
+export async function featureListing(listingId: string, days: number): Promise<void> {
+  const { error } = await supabase.rpc('feature_listing', { p_listing_id: listingId, p_days: days });
+  if (error) throw error;
+}
+
+export async function unfeatureListing(listingId: string): Promise<void> {
+  const { error } = await supabase.rpc('unfeature_listing', { p_listing_id: listingId });
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Saved searches and alerts
+// ---------------------------------------------------------------------------
+
+export async function fetchSavedSearches(): Promise<SavedSearch[]> {
+  const { data, error } = await supabase
+    .from('saved_searches')
+    .select('id, name, term, category_id, location_id, min_price, max_price, conditions')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    term: r.term,
+    categoryId: r.category_id,
+    locationId: r.location_id,
+    minPrice: r.min_price === null ? null : Number(r.min_price),
+    maxPrice: r.max_price === null ? null : Number(r.max_price),
+    conditions: r.conditions as ItemCondition[],
+  }));
+}
+
+export async function saveSearch(name: string, term: string, filters: Filters): Promise<void> {
+  const cleaned = cleanSearchTerm(term);
+  const { error } = await supabase.from('saved_searches').insert({
+    name: name.trim().slice(0, 60),
+    term: cleaned.length >= 2 ? cleaned : null,
+    category_id: filters.categoryId,
+    location_id: filters.locationId,
+    min_price: parsePrice(filters.minPrice),
+    max_price: parsePrice(filters.maxPrice),
+    conditions: filters.conditions,
+  });
+  if (error) throw error;
+}
+
+export async function deleteSavedSearch(id: string): Promise<void> {
+  const { error } = await supabase.from('saved_searches').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function fetchAlerts(): Promise<ListingAlert[]> {
+  const { data, error } = await supabase
+    .from('listing_alerts')
+    .select('id, listing_id, created_at, read_at, search:saved_searches(name), listing:listings(title, price_zmw)')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  const rows = data as unknown as {
+    id: string;
+    listing_id: string;
+    created_at: string;
+    read_at: string | null;
+    search: { name: string } | null;
+    listing: { title: string; price_zmw: number } | null;
+  }[];
+  return rows
+    .filter((r) => r.listing)
+    .map((r) => ({
+      id: r.id,
+      listingId: r.listing_id,
+      searchName: r.search?.name ?? '',
+      title: r.listing!.title,
+      price: Number(r.listing!.price_zmw),
+      createdAt: r.created_at,
+      read: r.read_at !== null,
+    }));
+}
+
+export async function countUnreadAlerts(): Promise<number> {
+  const { count, error } = await supabase
+    .from('listing_alerts')
+    .select('id', { count: 'exact', head: true })
+    .is('read_at', null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function markAlertRead(id: string): Promise<void> {
+  const { error } = await supabase.from('listing_alerts').update({ read_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw error;
 }
 
 // ---------------------------------------------------------------------------

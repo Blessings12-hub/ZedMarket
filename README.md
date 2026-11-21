@@ -16,8 +16,8 @@ Release 1 (the marketplace) is written. Release 2 and 3 exist only as database t
 
 ```
 supabase/
-  migrations/   run in order, 0001 to 0007
-  tests/        rls_policies.sql, a security test that rolls itself back
+  migrations/   run in order, 0001 to 0008
+  tests/        rls_policies.sql, trust_flows.sql, marketplace.sql: tests that roll themselves back
 mobile/
   app/          screens (Expo Router)
   src/          domain logic, Supabase calls, shared components
@@ -28,10 +28,10 @@ docs/
 ## Setup
 
 1. Create a project at supabase.com (a free project is fine for testing).
-2. In the SQL editor, run each file in `supabase/migrations/` in order: 0001, 0002, 0003, 0004, 0005, 0006, 0007. If one fails, stop and fix it before running the next.
-3. Run `supabase/tests/rls_policies.sql` and then `supabase/tests/trust_flows.sql` the same way. Each should finish without errors and undo itself. If one errors, a security rule is wrong; do not ship until both pass. `docs/TESTING.md` explains how to run them on your own computer or in GitHub Actions.
+2. In the SQL editor, run each file in `supabase/migrations/` in order: 0001, 0002, 0003, 0004, 0005, 0006, 0007, 0008. If one fails, stop and fix it before running the next.
+3. Run the three files in `supabase/tests/` (`rls_policies.sql`, `trust_flows.sql`, `marketplace.sql`) the same way. Each should finish without errors and undo itself. If one errors, a security rule is wrong; do not ship until all pass. `docs/TESTING.md` explains how to run them on your own computer or in GitHub Actions.
 4. In Authentication settings, keep email sign-in on and turn on leaked-password protection and rate limits if your plan offers them.
-5. In `mobile/`, copy `.env.example` to `.env` and fill in the project URL and the anon (public) key. Never put the service-role key in this file.
+5. In `mobile/`, copy `.env.example` to `.env` and fill in the project URL and the anon (public) key. Optionally set `EXPO_PUBLIC_WEB_URL` to where the web version is hosted; shared listing and seller links use it, and shares are text only without it. Never put the service-role key in this file.
 6. From `mobile/`:
    ```
    npm install
