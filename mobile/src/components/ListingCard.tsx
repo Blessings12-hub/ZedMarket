@@ -8,14 +8,14 @@ import { listingImageUrl } from '../lib/supabase';
 import { colors, radius, spacing } from '../theme';
 import { VerifiedBadge } from './ui';
 
-export function ListingCard({ listing }: { listing: ListingSummary }) {
+export function ListingCard({ listing, width }: { listing: ListingSummary; width?: number }) {
   const router = useRouter();
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${listing.title}, ${formatKwacha(listing.price)}`}
-      style={styles.card}
+      style={[styles.card, width ? { flex: 0, width } : null]}
       onPress={() => router.push(`/listing/${listing.id}`)}
     >
       {listing.imagePath ? (
