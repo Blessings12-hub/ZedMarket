@@ -42,6 +42,31 @@ Migration `0008_marketplace.sql`. Nothing from earlier migrations was changed.
 - Schedule `purge_old_listing_views` (and the other retention jobs) with pg_cron or an Edge Function.
 - Install `@expo/vector-icons` with `npx expo install @expo/vector-icons` (it is in `package.json` but missing from the committed `node_modules`).
 
+## User & Trust Management (staff section, added by instruction)
+
+Instruction: keep **Staff tools** for staff administration and add a separate section. Staff tools only gained one button ("User & Trust Management"); nothing was moved.
+
+Status: **built, partly tested.** The database part is tested (see `docs/TESTING.md`); the screens are type-checked but have never been opened on a phone, and there is no real Supabase project behind them yet.
+
+| Asked for | Where |
+| --- | --- |
+| Pending applications | `/trust/applications` (Pending tab; people and businesses; oldest first) |
+| Verified users | `/trust/users` (Verified filter) |
+| Rejected applications | `/trust/applications` (Rejected tab, shows the reason and who decided) |
+| Suspended accounts | `/trust/users` (Suspended and Restricted filters, with the reason) |
+| Individual user profiles | `/trust/user/[id]` (state, activity counts, businesses, staff roles) |
+| Document review | "Review the document" on an application (support only; the database logs the opening, then storage gives a five-minute link) |
+| Approve / reject | On pending applications (support). Rejection needs a reason. Nobody can decide their own application. Suspend / restrict / reinstate on the profile (moderators, reason required) |
+| Verification history | On each profile: every identity and business application with decision, reviewer and note |
+| Admin audit trails | `/trust/audit` (all of this section's actions) and per person from their profile. Technical admins see every action; support and moderators see only identity, business, account-state and document entries |
+
+Database: migration `0010_user_trust_management.sql` (functions `trust_applications`, `trust_users`, `trust_user_profile`, `trust_verification_history`, `trust_open_document`, `trust_audit_trail`; stronger `review_identity_verification` / `review_business_verification`). All need two-factor sign-in and the right role.
+
+Known limits:
+- Support can still read the private document buckets directly through storage (the 0005 policy). The audit entry is written by the screen's path, so a person with support access who goes around the app is not logged. Closing that needs documents to be served by an Edge Function with the service key; not built.
+- Applications are listed by name search only (no date or reviewer filter yet).
+- The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
+
 ## Module B: order management
 
 Migration `0009_orders.sql`. It changes three things from earlier migrations on purpose: `create_order` gains two optional arguments (the old two-argument version is replaced; calls with one or two arguments still work), and `set_order_status` and `open_dispute` are redefined. `set_order_status` keeps its signature and hands over to the new functions, so older app versions keep working. The `public_listings` view keeps its columns but now leaves out reserved items.

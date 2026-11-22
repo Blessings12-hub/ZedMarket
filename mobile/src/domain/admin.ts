@@ -52,3 +52,20 @@ export function reasonProblem(reason: string): string | null {
 export function cleanTotpCode(input: string): string {
   return input.replace(/\D/g, '').slice(0, 6);
 }
+
+// User & Trust Management. Again, the database decides; these only choose what to show.
+export function canReadTrust(roles: AdminRole[]): boolean {
+  return roles.includes('support') || roles.includes('moderator');
+}
+
+export function canReviewApplications(roles: AdminRole[]): boolean {
+  return roles.includes('support');
+}
+
+export function canChangeAccountState(roles: AdminRole[]): boolean {
+  return roles.includes('moderator');
+}
+
+export function canSeeTrustAudit(roles: AdminRole[]): boolean {
+  return canReadTrust(roles) || roles.includes('tech_admin');
+}
