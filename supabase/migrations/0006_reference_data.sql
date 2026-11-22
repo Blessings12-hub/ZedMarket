@@ -32,7 +32,7 @@ insert into public.locations (province, town, area) values
   ('Lusaka', 'Lusaka', 'Avondale'),
   ('Lusaka', 'Lusaka', 'Sunningdale'),
   ('Lusaka', 'Lusaka', 'Ibex Hill'),
-  ('Lusaka', 'Lusaka', 'Libala')
+  ('Lusaka', 'Lusaka', 'Libala'),
   ('Lusaka', 'Lusaka', 'Emmasdale'),
   ('Lusaka', 'Lusaka', 'Mandevu'),
   ('Lusaka', 'Lusaka', 'Chaisa'),
@@ -74,7 +74,7 @@ insert into public.locations (province, town, area) values
   ('Lusaka', 'Lusaka', 'Fairview'),
   ('Lusaka', 'Lusaka', 'Cathedral Hill'),
   ('Lusaka', 'Lusaka', 'Mass Media'),
-  ('Lusaka', 'Lusaka', 'Thorn Park');
+  ('Lusaka', 'Lusaka', 'Thorn Park')
 on conflict do nothing;
 
 -- Every value below is a starting point, not a decision. Tune them after the pilot.
