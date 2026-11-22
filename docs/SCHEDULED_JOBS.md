@@ -6,6 +6,8 @@ Some work has to happen on a timer. These are written as database functions that
 |---|---|---|
 | `run_order_maintenance()` | Closes unanswered requests and uncollected confirmed orders, and completes orders the buyer did not answer after hand-over | Every 10 minutes |
 | `purge_old_listing_views()` | Deletes browsing history older than 90 days | Once a day |
+| Edge Function `send-notifications` | Sends queued push notifications and reports each result back for retry | Every minute |
+| `purge_old_notifications()` | Deletes old read notifications and very old unread ones | Once a day |
 
 The app stays correct without the first one, because a stale reservation is released when the next buyer asks, but requests would stay open past their deadline, and orders would not complete by themselves, until the job runs.
 
@@ -21,7 +23,8 @@ select cron.schedule('zedmarket-orders', '*/10 * * * *', $$select public.run_ord
 select cron.schedule('zedmarket-views', '17 3 * * *', $$select public.purge_old_listing_views()$$);
 ```
 
-3. Check later with `select * from cron.job_run_details order by start_time desc limit 10;`.
+3. Notifications: deploy `supabase/functions/send-notifications` (`supabase functions deploy send-notifications`), set a secret `WORKER_SECRET`, then call it every minute with the header `x-worker-secret`. That needs `pg_net` plus pg_cron, or any outside scheduler that can send an HTTP request. I have not tried either. The purge is called like the others: `select cron.schedule('zedmarket-notes', '23 3 * * *', $$select public.purge_old_notifications()$$);` only works if the function is callable by the job's role; check, because it is granted to `service_role` only.
+4. Check later with `select * from cron.job_run_details order by start_time desc limit 10;`.
 
 To stop one: `select cron.unschedule('zedmarket-orders');`.
 

@@ -67,6 +67,37 @@ Known limits:
 - Applications are listed by name search only (no date or reviewer filter yet).
 - The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
 
+## Module E: notifications
+
+Migration `0012_notifications.sql`, tests in `supabase/tests/notifications.sql`.
+
+| Directive item | What exists | Tested |
+|---|---|---|
+| In-app notifications | `notifications` table, written only by the database (`notify`). Triggers cover order events, chat messages (never the message text), saved-search alerts, identity and business verification decisions, account suspension and restoring, listing rejection and moderator approval, business invitations, and low stock | Database: yes |
+| Push | Device tokens (`register_push_token`, at most 10 per person, a token moves to whoever registered last), a delivery queue, and an Edge Function `send-notifications` that sends through Expo | Queue: yes. Edge Function and phone: **no** |
+| Email and SMS | Preferences and queue rows exist and are switched off by `notifications.email_enabled` / `notifications.sms_enabled`. **No sender is built**: no provider has been chosen | Gating only |
+| Unread counts | `unread_notification_count()`, live updates through Realtime, badge on the Account screen | Count: yes |
+| History | Inbox screen with category filter, read and unread, mark one or all as read; old ones are purged by `purge_old_notifications` | Database: yes |
+| Preferences | Per category: in-app, push, email, SMS. Account and safety notices cannot be switched off. Switching a category off in-app mutes it completely | Database: yes |
+| Deep links | Stored as plain paths, checked by the database (no `..`, no web addresses) and again by the app against a list of real screens | Both: yes |
+| Retry and duplicates | A repeated event gives one notification (unique key per person). Deliveries are claimed with a 2-minute lease so two workers never take the same one, retried after 1, 5, 30, 120 and 720 minutes, then marked dead. A notification already read, or a token that was switched off or moved, is skipped. Dead tokens reported by Expo are disabled | Database: yes, including races between workers' leases |
+
+### Known limits
+
+- The Edge Function has never been run. Its request and response shapes come from my knowledge of Expo's push service and need checking against Expo's current documentation. It does not read Expo's delivery receipts.
+- Push on a phone needs the `expo-notifications` package, a development or production build and an Expo project id. I did not change `package.json`, so the app loads the package only if it is installed. Nothing was tried on a phone.
+- Nothing is scheduled yet (see `docs/SCHEDULED_JOBS.md`): without the schedule, push is never sent and old notifications are never purged. In-app notifications work without it.
+- Saved-search alerts and chat messages now appear twice: in the older Alerts screen and in the notification inbox. The old screen is kept so nothing is lost.
+- The in-app text is English only. Bemba and Nyanja come with the localisation pass.
+- Who gets what is decided in the triggers. Each text is short and plain; staff should read them before launch.
+
+### Still needed before Module E can be called done
+
+- Run migration 0012 and `notifications.sql` on the real staging project.
+- Deploy `send-notifications`, set its secrets, schedule it, and send a real test push.
+- Choose an email and an SMS provider (cost and Zambian delivery should drive that) and build their senders, or decide not to offer those channels.
+- Walk through on a phone: place an order and see the seller notified, tap it and land on the order, mute a category, sign out and confirm the phone stops receiving.
+
 ## Module C: Business Hub
 
 Status: **built, partly tested.** Database tested (SQL tests, mutation checks and real-connection race tests). Screens type-checked and the permission table unit-tested against the same strings as the database, but never opened on a phone and never run against a real Supabase project.

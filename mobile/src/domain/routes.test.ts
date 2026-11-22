@@ -24,6 +24,8 @@ test('everything that needs an account stays private', () => {
     ['checkout', '[listingId]'],
     ['saved'],
     ['alerts'],
+    ['notifications'],
+    ['notification-settings'],
     ['report'],
     ['verify', 'identity'],
     ['review', '[orderId]'],
