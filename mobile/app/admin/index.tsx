@@ -8,6 +8,7 @@ import {
   canHandleReports,
   canManageTeam,
   canModerate,
+  canSeeTrustAudit,
   canSupport,
   cleanTotpCode,
   staffAccessStep,
@@ -166,6 +167,13 @@ export default function AdminHome() {
           <SectionTitle>Support</SectionTitle>
           <Button title="Verification requests" onPress={() => router.push('/admin/verifications')} />
           <Button title="Disputes" variant="secondary" onPress={() => router.push('/admin/disputes')} />
+        </>
+      ) : null}
+
+      {canSeeTrustAudit(roles) ? (
+        <>
+          <SectionTitle>Users and trust</SectionTitle>
+          <Button title="User & Trust Management" variant="secondary" onPress={() => router.push('/trust')} />
         </>
       ) : null}
 
