@@ -4,7 +4,7 @@ Buy. Sell. Deliver. A marketplace for Zambia, starting in Lusaka.
 
 This repo is the working build of the plan in `ZedMarket_Business_Blueprint.pdf`. The blueprint says to build the marketplace first, then delivery, then business tools, so the code follows that order.
 
-`docs/BLUEPRINT_TRACKER.md` lists every item in the blueprint and says whether it is built, only in the database, planned, or waiting on a decision.
+`docs/DIRECTIVE_PROGRESS.md` shows where each development module stands. `docs/SCHEDULED_JOBS.md` lists work that needs a timer. `docs/BLUEPRINT_TRACKER.md` lists every item in the blueprint and says whether it is built, only in the database, planned, or waiting on a decision.
 
 ## Honest status
 
@@ -16,8 +16,8 @@ Release 1 (the marketplace) is written. Release 2 and 3 exist only as database t
 
 ```
 supabase/
-  migrations/   run in order, 0001 to 0008
-  tests/        rls_policies.sql, trust_flows.sql, marketplace.sql: tests that roll themselves back
+  migrations/   run in order, 0001 to 0009
+  tests/        rls_policies.sql, trust_flows.sql, marketplace.sql, orders.sql: tests that roll themselves back
 mobile/
   app/          screens (Expo Router)
   src/          domain logic, Supabase calls, shared components
@@ -28,8 +28,8 @@ docs/
 ## Setup
 
 1. Create a project at supabase.com (a free project is fine for testing).
-2. In the SQL editor, run each file in `supabase/migrations/` in order: 0001, 0002, 0003, 0004, 0005, 0006, 0007, 0008. If one fails, stop and fix it before running the next.
-3. Run the three files in `supabase/tests/` (`rls_policies.sql`, `trust_flows.sql`, `marketplace.sql`) the same way. Each should finish without errors and undo itself. If one errors, a security rule is wrong; do not ship until all pass. `docs/TESTING.md` explains how to run them on your own computer or in GitHub Actions.
+2. In the SQL editor, run each file in `supabase/migrations/` in order: 0001, 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0009. If one fails, stop and fix it before running the next.
+3. Run the four files in `supabase/tests/` (`rls_policies.sql`, `trust_flows.sql`, `marketplace.sql`, `orders.sql`) the same way. Each should finish without errors and undo itself. If one errors, a security rule is wrong; do not ship until all pass. `docs/TESTING.md` explains how to run them on your own computer or in GitHub Actions.
 4. In Authentication settings, keep email sign-in on and turn on leaked-password protection and rate limits if your plan offers them.
 5. In `mobile/`, copy `.env.example` to `.env` and fill in the project URL and the anon (public) key. Optionally set `EXPO_PUBLIC_WEB_URL` to where the web version is hosted; shared listing and seller links use it, and shares are text only without it. Never put the service-role key in this file.
 6. From `mobile/`:
