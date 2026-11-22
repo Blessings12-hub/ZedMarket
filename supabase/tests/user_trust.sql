@@ -87,13 +87,19 @@ insert into public.business_verifications (id, business_id, registration_number,
 
 grant execute on all functions in schema zm_test to anon, authenticated, service_role;
 
-\set A '00000000-0000-0000-0000-00000000000a'
-\set B '00000000-0000-0000-0000-00000000000b'
-\set S '00000000-0000-0000-0000-00000000000e'
-\set M '00000000-0000-0000-0000-000000000001'
-\set T '00000000-0000-0000-0000-000000000002'
-\set O '00000000-0000-0000-0000-00000000000d'
-\set X '00000000-0000-0000-0000-000000000003'
+CREATE TEMP TABLE test_ids (
+    name text PRIMARY KEY,
+    id uuid NOT NULL
+);
+
+INSERT INTO test_ids (name, id) VALUES
+('A', '00000000-0000-0000-0000-00000000000a'),
+('B', '00000000-0000-0000-0000-00000000000b'),
+('S', '00000000-0000-0000-0000-00000000000e'),
+('M', '00000000-0000-0000-0000-000000000001'),
+('T', '00000000-0000-0000-0000-000000000002'),
+('O', '00000000-0000-0000-0000-00000000000d'),
+('X', '00000000-0000-0000-0000-000000000003');
 
 -- 1. Who can get in
 select zm_test.act_as_guest();
