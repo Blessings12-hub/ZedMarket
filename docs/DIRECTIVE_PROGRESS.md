@@ -6,7 +6,7 @@ Status words used here: **Done** means built and tested through the whole user j
 |---|---|
 | 1. Stabilise existing work | Built, partly tested. Migrations and database security tests run in GitHub Actions and locally. Not yet tested: real sign-up and recovery, uploads, chat delivery, screen journeys. |
 | A. Advanced marketplace | Built, partly tested. See below. |
-| B. Order management | Not started |
+| B. Order management | Built, partly tested. See below. |
 | C. Business hub | Not started |
 | D. Delivery and logistics | Not started |
 | E. Notifications | Not started |
@@ -41,3 +41,34 @@ Migration `0008_marketplace.sql`. Nothing from earlier migrations was changed.
 - Open the app (phone and web) and walk through: browse as a guest, sign in, search, filter, save a search, post a matching listing from another account, approve it, see the alert, share, open the seller page.
 - Schedule `purge_old_listing_views` (and the other retention jobs) with pg_cron or an Edge Function.
 - Install `@expo/vector-icons` with `npx expo install @expo/vector-icons` (it is in `package.json` but missing from the committed `node_modules`).
+
+## Module B: order management
+
+Migration `0009_orders.sql`. It changes three things from earlier migrations on purpose: `create_order` gains two optional arguments (the old two-argument version is replaced; calls with one or two arguments still work), and `set_order_status` and `open_dispute` are redefined. `set_order_status` keeps its signature and hands over to the new functions, so older app versions keep working. The `public_listings` view keeps its columns but now leaves out reserved items.
+
+| Item | What exists | Tested |
+|---|---|---|
+| Checkout | Choose collection or delivery, delivery address or landmark, note to the seller. Says plainly that nothing is charged and ZedMarket does not hold money. | Rules: database and unit tests. Screen: not run. |
+| Stock control | Requests do not reserve an item. When the seller confirms one order, the item is reserved (one row per item, the primary key refuses a second) and every other open request for it is turned away. Reserved items leave browsing. Row locks keep simultaneous actions in order. | Database tests, plus `concurrency.sh`: many real connections acting at the same moment (confirm against confirm, ask against ask, cancel against confirm, mark sold against confirm, ask against confirm). |
+| Order expiry | Unanswered requests close after 48 hours and confirmed orders nobody hands over close after 7 days (starting values in `platform_settings`). A stale reservation is also released when the next buyer asks, so the schedule is not the only safeguard. | Database: yes. **The schedule itself is not set up** (see `docs/SCHEDULED_JOBS.md`). |
+| Seller confirm, decline, cancel | Server-side only. Business members can act for a business listing. | 108 combinations of person, step and state, checked against one table. |
+| Hand-over and confirmation | Seller marks collected or delivered; buyer confirms they have it. If the buyer says nothing and opens no dispute for 3 days after hand-over, the order completes by itself. | Database: yes |
+| Delivery fee | The seller states it when confirming (collection orders have none). It is shown on the order and the receipt. | Database: yes |
+| Event history | Every step is recorded by the database with who did it. Nobody can write or edit it from the app. | Database: yes |
+| Digital receipt | Available once completed. Records the item, price, fee and total agreed. It says that ZedMarket did not take, hold or confirm any payment. It is not proof of payment. | Database and unit tests |
+| Dispute initiation | Unchanged rules, now recorded in the history, and a disputed order stops expiring or completing by itself. Support staff settle a disputed order as completed or cancelled (audited, two-factor). | Database: yes |
+| Item stops being for sale | A seller cannot pause or mark sold an item with a confirmed order. Removal by staff, or pausing with only open requests, closes the orders with a reason. | Database: yes |
+
+### Known limits
+
+- No money moves, so there is nothing to refund. Payment is between buyer and seller until the payments module.
+- Collection and delivery PINs, proof of delivery and provider tracking belong to the delivery module and are not here.
+- Notifications about order changes belong to the notifications module. Until then people see changes when they open the app.
+- Support staff accounts see every order in their own orders list (the database allows them to read orders). A proper staff order screen comes with the admin dashboard.
+- Orders made before this migration are backfilled as well as the old data allows (for example the confirmation time is taken from the last update).
+
+### Still needed before Module B can be called done
+
+- Run migration 0009, `orders.sql` and `concurrency.sh` on the real staging project (the race script needs a superuser connection and creates its own scratch database).
+- Schedule `run_order_maintenance` (`docs/SCHEDULED_JOBS.md`).
+- Walk through on a phone: request (collection and delivery), seller confirms, another buyer sees "reserved", buyer cancels, seller declines, hand-over, buyer confirms, receipt, dispute, review.
