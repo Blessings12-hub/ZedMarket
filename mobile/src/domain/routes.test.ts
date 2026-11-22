@@ -8,6 +8,7 @@ test('guests can browse, open listings and open seller pages', () => {
   assert.equal(isPublicRoute(['(tabs)', 'index']), true);
   assert.equal(isPublicRoute(['listing', '[id]']), true);
   assert.equal(isPublicRoute(['seller', '[id]']), true);
+  assert.equal(isPublicRoute(['business', '[slug]']), true);
   assert.equal(isPublicRoute(['(auth)', 'sign-in']), true);
   assert.equal(isPublicRoute([]), true);
 });
@@ -31,6 +32,10 @@ test('everything that needs an account stays private', () => {
     ['admin'],
     ['admin', 'listings'],
     ['trust'],
+    ['business', 'manage'],
+    ['business', 'manage', '[id]'],
+    ['business', 'manage', '[id]', 'inventory'],
+    ['business', 'invitations'],
     ['trust', 'applications'],
     ['trust', 'user', 'abc'],
   ]) {

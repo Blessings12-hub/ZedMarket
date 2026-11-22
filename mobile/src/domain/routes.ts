@@ -10,6 +10,8 @@ export function isPublicRoute(segments: readonly string[]): boolean {
   const top = segments[0];
   if (top === undefined) return true;
   if (PUBLIC_TOP_LEVEL.has(top)) return true;
+  // A shop's public page is open; the manage screens under /business/manage need sign-in.
+  if (top === 'business') return segments.length === 2 && segments[1] === '[slug]';
   if (top === '(tabs)') return segments.length === 1 || segments[1] === 'index';
   return false;
 }
