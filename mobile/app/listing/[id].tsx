@@ -19,7 +19,7 @@ import {
   unfeatureListing,
 } from '../../src/features/listings/api';
 import type { ListingDetail, ListingSummary, SellerStats } from '../../src/features/listings/types';
-import { requestToBuy } from '../../src/features/orders/api';
+import { isListingReserved } from '../../src/features/orders/api';
 import { conditionLabel } from '../../src/domain/listing';
 import { formatKwacha } from '../../src/domain/money';
 import { listingLink, listingShareMessage, webBase } from '../../src/domain/share';
@@ -40,6 +40,7 @@ export default function ListingScreen() {
   const [saved, setSaved] = useState(false);
   const [similar, setSimilar] = useState<ListingSummary[]>([]);
   const [isModerator, setIsModerator] = useState(false);
+  const [reserved, setReserved] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -48,12 +49,14 @@ export default function ListingScreen() {
     try {
       const detail = await fetchListing(id, signedIn);
       setListing(detail);
-      const [sellerStats, fav, more, roles] = await Promise.all([
+      const [sellerStats, fav, more, roles, isReserved] = await Promise.all([
         fetchSellerStats(detail.sellerId).catch(() => null),
         signedIn ? isFavourite(id).catch(() => false) : Promise.resolve(false),
         fetchSimilar(id).catch(() => [] as ListingSummary[]),
         userId ? fetchMyRoles(userId).catch(() => []) : Promise.resolve([]),
+        isListingReserved(id).catch(() => false),
       ]);
+      setReserved(isReserved);
       setStats(sellerStats);
       setSaved(fav);
       setSimilar(more);
@@ -145,27 +148,7 @@ export default function ListingScreen() {
 
   function askToBuy() {
     if (needAccount()) return;
-    Alert.alert(
-      'Request to buy',
-      `Send ${listing!.sellerName} a request to buy this for ${formatKwacha(listing!.price)}? You arrange collection and payment with the seller. Nothing is charged here.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send request',
-          onPress: async () => {
-            setBusy(true);
-            try {
-              await requestToBuy(listing!.id);
-              router.push('/orders');
-            } catch (e) {
-              Alert.alert('Could not send the request', friendlyError(e));
-            } finally {
-              setBusy(false);
-            }
-          },
-        },
-      ],
-    );
+    router.push(`/checkout/${listing!.id}`);
   }
 
   async function changeStatus(status: 'active' | 'sold' | 'unavailable') {
@@ -256,7 +239,8 @@ export default function ListingScreen() {
           </View>
         ) : (
           <View style={{ gap: spacing.sm }}>
-            <Button title="Request to buy" onPress={askToBuy} disabled={!available || busy} />
+            {reserved ? <Notice tone="warning">Reserved for another buyer right now. It may come back if that order falls through.</Notice> : null}
+            <Button title="Request to buy" onPress={askToBuy} disabled={!available || reserved || busy} />
             <Button title="Message seller" variant="secondary" onPress={messageSeller} disabled={!available || busy} />
             <Button title={saved ? 'Remove from saved' : 'Save for later'} variant="secondary" onPress={toggleSaved} />
             <Button title="Share" variant="secondary" onPress={shareListing} />
