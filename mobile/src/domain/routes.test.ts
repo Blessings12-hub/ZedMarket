@@ -30,6 +30,9 @@ test('everything that needs an account stays private', () => {
     ['appeal'],
     ['admin'],
     ['admin', 'listings'],
+    ['trust'],
+    ['trust', 'applications'],
+    ['trust', 'user', 'abc'],
   ]) {
     assert.equal(isPublicRoute(segments), false, segments.join('/'));
   }
