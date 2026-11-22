@@ -67,6 +67,34 @@ Known limits:
 - Applications are listed by name search only (no date or reviewer filter yet).
 - The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
 
+## Module C: Business Hub
+
+Status: **built, partly tested.** Database tested (SQL tests, mutation checks and real-connection race tests). Screens type-checked and the permission table unit-tested against the same strings as the database, but never opened on a phone and never run against a real Supabase project.
+
+| Directive item | What exists |
+| --- | --- |
+| Public business storefronts | `/business/[slug]` (open to signed-out visitors): description, verified badge only when staff verified the registration, branches, catalogues, search, listings. Views `public_businesses`, `public_business_branches`, `public_business_catalogues`, function `business_storefront_listings`. Suspended owners disappear. |
+| Catalogues | Named groups of a business's listings, hidden or shown, up to 30 per business and 200 listings each (Business tools, Catalogues) |
+| Business product listings | The Sell tab can post as yourself or as one of your businesses, pick the branch, and give a starting stock count |
+| Inventory management | Stock counts per listing with a movement history, low-stock level, pause at zero and restore on restock (only for listings the system paused), one unit off per completed order |
+| Employee invitations | By email, 7 days, matched to a confirmed email address; accept, decline, revoke. Direct inserts into the member table are closed |
+| Role-based permissions | `business_can()` in the database, mirrored in `src/domain/business.ts` and compared string-for-string in tests. Owner: everything. Manager: everything except the team. Staff: orders, listings and stock. Suspended members have none |
+| Multiple branches | Up to 20 per business, one main branch, listings and orders carry a branch, switching off needs the branch to have no active listings |
+| Business order management | Order list with filters (`business_orders`); answering orders reuses the existing order screen and rules |
+| Business analytics | `business_analytics`: orders, completed value, views, saves, stock warnings, top listings, split by branch, for 7, 30 or 90 days. Owner and manager only |
+
+Database: migration `0011_business_hub.sql`. Tests: `supabase/tests/business_hub.sql` and race scenarios 6 and 7 in `supabase/tests/local/concurrency.sh`. Race scenario 6 exists because stock and order completion lock the same rows; the stock functions lock the listing first, the same order the order functions use, to avoid deadlocks.
+
+### Known limits
+
+- **One buyer per listing at a time.** Module B reserves a whole listing for one confirmed order, so a business holding 5 of an item can still have only one confirmed order on that listing at once. Each completed order takes one unit off. Letting several buyers hold units at the same time needs the reservation table reworked, and the race tests redone.
+- Completed value is the listed price of completed orders. ZedMarket handles no payment, so it is not money received.
+- No owner transfer, and no "delete business" screen.
+- Staff are not limited to one branch: every member sees all of the business's orders and stock. Branch-limited staff would need changes to the order access rules.
+- Business profile edit (name, description, logo, address) uses the existing owner/manager table permission; there is no screen for it yet beyond creation.
+- Invitations need the invited person to have an account with a confirmed email. Nothing sends them an email or a notification yet (Module E).
+- The business limit per person is not capped.
+
 ## Module B: order management
 
 Migration `0009_orders.sql`. It changes three things from earlier migrations on purpose: `create_order` gains two optional arguments (the old two-argument version is replaced; calls with one or two arguments still work), and `set_order_status` and `open_dispute` are redefined. `set_order_status` keeps its signature and hands over to the new functions, so older app versions keep working. The `public_listings` view keeps its columns but now leaves out reserved items.
