@@ -453,9 +453,13 @@ export type NewListing = {
   warrantyInfo: string;
   returnPolicy: string;
   photos: PickedPhoto[];
+  // Posting for a business: which business, which branch holds the item, and an optional starting stock count.
+  businessId?: string | null;
+  branchId?: string | null;
+  stock?: number | null;
 };
 
-export type PublishResult = { id: string; moderationStatus: ModerationStatus; status: ListingStatus };
+export type PublishResult = { id: string; moderationStatus: ModerationStatus; status: ListingStatus; stockNote?: string };
 
 // A listing starts as a draft, photos are added, then it is published. The database
 // refuses to publish without a photo and decides whether a moderator must look first.
@@ -471,6 +475,8 @@ export async function publishListing(input: NewListing): Promise<PublishResult> 
       condition: input.condition,
       warranty_info: input.warrantyInfo.trim() || null,
       return_policy: input.returnPolicy.trim() || null,
+      business_id: input.businessId ?? null,
+      branch_id: input.businessId ? (input.branchId ?? null) : null,
     })
     .select('id')
     .single();
@@ -506,7 +512,16 @@ export async function publishListing(input: NewListing): Promise<PublishResult> 
       .single();
     if (published.error) throw published.error;
 
+    // Stock is saved after the listing is live. If this step fails the listing still stands,
+    // and the person is told to add the count from Business tools.
+    let stockNote: string | undefined;
+    if (input.businessId && input.stock !== null && input.stock !== undefined) {
+      const tracked = await supabase.rpc('track_stock', { p_listing: listingId, p_quantity: input.stock, p_low_stock_at: 2 });
+      if (tracked.error) stockNote = 'Your listing was posted, but the stock count was not saved. Add it from Business tools, then Stock.';
+    }
+
     return {
+      stockNote,
       id: listingId,
       status: published.data.status as ListingStatus,
       moderationStatus: published.data.moderation_status as ModerationStatus,
