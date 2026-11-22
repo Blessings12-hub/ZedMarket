@@ -60,6 +60,11 @@ function AuthGate() {
       <Stack.Screen name="admin/flags" options={{ title: 'Risk flags' }} />
       <Stack.Screen name="admin/team" options={{ title: 'Staff team' }} />
       <Stack.Screen name="admin/audit" options={{ title: 'Audit log' }} />
+      <Stack.Screen name="trust/index" options={{ title: 'User & Trust Management' }} />
+      <Stack.Screen name="trust/applications" options={{ title: 'Verification applications' }} />
+      <Stack.Screen name="trust/users" options={{ title: 'Users' }} />
+      <Stack.Screen name="trust/user/[id]" options={{ title: 'User profile' }} />
+      <Stack.Screen name="trust/audit" options={{ title: 'Audit trail' }} />
     </Stack>
   );
 }
