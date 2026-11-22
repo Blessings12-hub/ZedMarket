@@ -19,6 +19,8 @@ test('everything that needs an account stays private', () => {
     ['(tabs)', 'account'],
     ['chat', '[id]'],
     ['orders'],
+    ['order', '[id]'],
+    ['checkout', '[listingId]'],
     ['saved'],
     ['alerts'],
     ['report'],
