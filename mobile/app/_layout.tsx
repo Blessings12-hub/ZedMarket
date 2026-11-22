@@ -60,6 +60,16 @@ function AuthGate() {
       <Stack.Screen name="admin/flags" options={{ title: 'Risk flags' }} />
       <Stack.Screen name="admin/team" options={{ title: 'Staff team' }} />
       <Stack.Screen name="admin/audit" options={{ title: 'Audit log' }} />
+      <Stack.Screen name="business/[slug]" options={{ title: 'Shop' }} />
+      <Stack.Screen name="business/invitations" options={{ title: 'Team invitations' }} />
+      <Stack.Screen name="business/manage/index" options={{ title: 'Business tools' }} />
+      <Stack.Screen name="business/manage/[id]/index" options={{ title: 'Your business' }} />
+      <Stack.Screen name="business/manage/[id]/orders" options={{ title: 'Business orders' }} />
+      <Stack.Screen name="business/manage/[id]/inventory" options={{ title: 'Stock' }} />
+      <Stack.Screen name="business/manage/[id]/team" options={{ title: 'Team' }} />
+      <Stack.Screen name="business/manage/[id]/branches" options={{ title: 'Branches' }} />
+      <Stack.Screen name="business/manage/[id]/catalogues" options={{ title: 'Catalogues' }} />
+      <Stack.Screen name="business/manage/[id]/analytics" options={{ title: 'Analytics' }} />
       <Stack.Screen name="trust/index" options={{ title: 'User & Trust Management' }} />
       <Stack.Screen name="trust/applications" options={{ title: 'Verification applications' }} />
       <Stack.Screen name="trust/users" options={{ title: 'Users' }} />
