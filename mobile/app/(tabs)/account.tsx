@@ -81,6 +81,7 @@ export default function AccountScreen() {
 
       <Button title="Your orders" variant="secondary" onPress={() => router.push('/orders')} />
       <Button title="Get verified" variant="secondary" onPress={() => router.push('/verify')} />
+      <Button title="Business tools" variant="secondary" onPress={() => router.push('/business/manage')} />
       <Button title="Saved items" variant="secondary" onPress={() => router.push('/saved')} />
       <Button
         title={unreadAlerts > 0 ? `Saved searches and alerts (${unreadAlerts} new)` : 'Saved searches and alerts'}

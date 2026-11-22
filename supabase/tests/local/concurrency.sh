@@ -228,10 +228,58 @@ for i in $(seq 1 "$N"); do
   [ "$res" = "1" ] && [ "$stuck" = "0" ] || fail "s5 item $i: reservations=$res requests still waiting=$stuck (want 1 and 0)"
 done
 
+echo "Scenario 6: stock is adjusted while a buyer completes an order (migration 0011)"
+scratch <<SQL >/dev/null
+insert into public.businesses (id, owner_id, name, slug) values ('20000000-0000-0000-0000-0000000000aa', '$A', 'Race Shop', 'race-shop');
+SQL
+plan s6 one
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s6' and slot=$i")
+  ob=$(q "select order_b from public.race_plan where scenario='s6' and slot=$i")
+  scratch -c "update public.listings set business_id='20000000-0000-0000-0000-0000000000aa' where id='$lid'; update public.orders set business_id='20000000-0000-0000-0000-0000000000aa' where id='$ob'; insert into public.listing_stock (listing_id, business_id, quantity) values ('$lid','20000000-0000-0000-0000-0000000000aa', 5);" >/dev/null 2>&1 || true
+  scratch -c "set role authenticated; select set_config('request.jwt.claims','{\"sub\":\"$A\",\"role\":\"authenticated\",\"aal\":\"aal1\"}', false); select public.confirm_order('$ob', 0); select public.mark_handed_over('$ob');" >/dev/null 2>&1
+done
+race
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s6' and slot=$i")
+  ob=$(q "select order_b from public.race_plan where scenario='s6' and slot=$i")
+  worker "s6_${i}_buyer" "$B" "select public.complete_order('$ob');"
+  worker "s6_${i}_adj" "$A" "select public.adjust_stock('$lid', -1, 'damaged');"
+done
+wait_for_workers
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s6' and slot=$i")
+  ob=$(q "select order_b from public.race_plan where scenario='s6' and slot=$i")
+  qty=$(q "select quantity from public.listing_stock where listing_id='$lid'")
+  ost=$(q "select status from public.orders where id='$ob'")
+  mv=$(q "select coalesce(sum(change),0) from public.stock_movements where listing_id='$lid'")
+  [ "$ost" = "completed" ] && [ "$qty" = "3" ] || fail "s6 item $i: order $ost, quantity $qty (want completed and 3)"
+  [ "$mv" = "-2" ] || fail "s6 item $i: movements add up to $mv (want -2)"
+done
+
+echo "Scenario 7: three people take stock off at the same moment when only two are left"
+plan s7 none
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s7' and slot=$i")
+  scratch -c "update public.listings set business_id='20000000-0000-0000-0000-0000000000aa' where id='$lid'; insert into public.listing_stock (listing_id, business_id, quantity) values ('$lid','20000000-0000-0000-0000-0000000000aa', 2);" >/dev/null
+done
+race
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s7' and slot=$i")
+  for k in 1 2 3; do worker "s7_${i}_$k" "$A" "select public.adjust_stock('$lid', -1, 'damaged');"; done
+done
+wait_for_workers
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s7' and slot=$i")
+  qty=$(q "select quantity from public.listing_stock where listing_id='$lid'")
+  st=$(q "select status from public.listings where id='$lid'")
+  [ "$qty" = "0" ] && [ "$st" = "unavailable" ] || fail "s7 item $i: quantity $qty, listing $st (want 0 and unavailable)"
+done
+
 # Every error a worker saw must be one of the polite refusals. A deadlock or a raw database
 # error (such as a duplicate key) means the locking is not doing its job, even if the end state looks right.
 unexpected=$(cat "$WORK"/*.err 2>/dev/null | grep -i "error" \
-  | grep -v -e "not allowed for this order" -e "reserved for another buyer" -e "confirmed order" -e "not available" || true)
+  | grep -v -e "not allowed for this order" -e "reserved for another buyer" -e "confirmed order" -e "not available" -e "in stock" || true)
 if [ -n "$unexpected" ]; then
   fail "unexpected errors from workers:"
   echo "$unexpected" | sort | uniq -c | head
@@ -240,7 +288,7 @@ deadlocks=$(cat "$WORK"/*.err 2>/dev/null | grep -ci "deadlock" || true)
 [ "$deadlocks" = "0" ] || fail "$deadlocks deadlock(s) detected"
 
 if [ "$scenario_failures" -eq 0 ]; then
-  echo "All race checks passed ($N items per scenario, 5 scenarios)."
+  echo "All race checks passed ($N items per scenario, 7 scenarios)."
 else
   echo "$scenario_failures race check(s) failed."
   exit 1
