@@ -4,6 +4,8 @@ import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, View } f
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
+import { canStartPayment, statusLabel } from '../../src/domain/payments';
+import { fetchMyPayments, paymentsEnabled, type MyPayment } from '../../src/features/payments/api';
 import { formatKwacha } from '../../src/domain/money';
 import {
   actionLabel,
@@ -43,6 +45,8 @@ export default function OrderScreen() {
   const [events, setEvents] = useState<OrderEvent[]>([]);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [reviewed, setReviewed] = useState(false);
+  const [orderPayments, setOrderPayments] = useState<MyPayment[]>([]);
+  const [payOn, setPayOn] = useState(false);
   const [fee, setFee] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -62,6 +66,8 @@ export default function OrderScreen() {
       setEvents(ev);
       setReviewed(done.has(id));
       setReceipt(rc);
+      setOrderPayments(await fetchMyPayments(id).catch(() => [] as MyPayment[]));
+      setPayOn(await paymentsEnabled().catch(() => false));
       setError('');
     } catch (e) {
       setError(friendlyError(e));
@@ -163,6 +169,7 @@ export default function OrderScreen() {
     }
   }
 
+  const paidInApp = orderPayments.some((p) => p.status === 'succeeded');
   const needsReason = actions.includes('decline') || actions.includes('cancel');
 
   return (
@@ -189,8 +196,20 @@ export default function OrderScreen() {
           {order.fulfilment === 'delivery' ? `Delivery to: ${order.deliveryAddress}` : 'Collection: you arrange the meeting with the seller'}
         </Text>
         {order.buyerNote ? <Text style={styles.meta}>Buyer's note: {order.buyerNote}</Text> : null}
-        <Text style={styles.meta}>You pay the seller directly. ZedMarket does not take or hold payment.</Text>
+        <Text style={styles.meta}>
+          {paidInApp
+            ? 'Paid through ZedMarket by mobile money. ZedMarket does not hold the money.'
+            : 'You pay the seller directly unless paying in the app is offered below. ZedMarket does not hold payment.'}
+        </Text>
       </View>
+      {role === 'buyer' && payOn && canStartPayment(order.status, 'buyer', orderPayments) ? (
+        <Button title="Pay with mobile money" onPress={() => router.push(`/pay/${order.id}`)} />
+      ) : null}
+      {orderPayments[0] ? (
+        <View style={styles.card}>
+          <Text style={styles.line}>Payment: {statusLabel(orderPayments[0].status)}</Text>
+        </View>
+      ) : null}
 
       {error ? <Notice tone="error">{error}</Notice> : null}
 

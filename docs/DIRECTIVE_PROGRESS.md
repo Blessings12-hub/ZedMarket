@@ -67,6 +67,40 @@ Known limits:
 - Applications are listed by name search only (no date or reviewer filter yet).
 - The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
 
+## Module G: payments
+
+Migration `0013_payments.sql` (it replaces two empty placeholder tables from migrations 0002 and 0004, and refuses to run if they ever contain rows), tests in `supabase/tests/payments.sql`.
+
+**Design rule:** ZedMarket records payments, it does not hold money. There is no wallet. Whether this set-up, or any later one that holds funds, needs a licence is a question for a lawyer and the Bank of Zambia, and I cannot answer it.
+
+| Directive item | What exists | Tested |
+|---|---|---|
+| Authorised provider integration | **Not built.** No provider or aggregator has been chosen. The database has the functions a provider worker will call (`record_provider_result`, `record_refund_result`, `expire_stale_payments`, service role only). Payments are switched off (`payments.enabled = 0`) until you turn them on | Functions: yes. A real provider: **no** |
+| MTN Mobile Money, Airtel Money | The buyer picks one and enters a +260 number. Which one a provider supports is for the provider to say | Format and choice: yes |
+| Payment verification | A payment becomes paid only by a provider result (right amount, with a provider reference) or by finance with a provider reference and a written note. The app cannot mark anything paid. The amount is taken from the order by the database, not from the phone | Database: yes |
+| Reconciliation | Finance can settle a waiting payment, or one flagged for checking, by hand against the provider statement. Every reconciliation is audited and finance staff cannot reconcile a payment they are part of | Database: yes |
+| Refund management | Finance requests, a different finance person approves or rejects, then the refund is recorded as sent (or failed) with the reference. Refunds in progress count against the amount, so the total can never go above what was paid | Database: yes |
+| Failed payments | Provider failure, cancel by the buyer, timeout after 30 minutes, and retry (a new attempt is allowed once the old one is closed). A late "paid" report for a closed payment, or a wrong amount, is not applied: it is flagged for finance. Cancelling an order closes its waiting payment and flags a paid one for finance | Database: yes |
+| Payment history | Buyers and sellers see their own payments; the order screen shows the payment state; a Payments screen lists them | Database: yes. Screens: not run |
+| Finance administration | Finance screen: counts and amounts, filters, search, payments needing a check, payment detail with its history, reconcile, refund requests and approvals. Phone numbers are masked | Database: yes. Screens: not run |
+
+### Known limits
+
+- Nothing can actually be paid yet. With no provider connected, a payment started in the app would only wait and time out, which is why it is switched off by default.
+- Provider webhooks (and checking their signatures) will need an Edge Function written for the chosen provider. I did not write a placeholder.
+- The receipt for a completed order still says ZedMarket did not take or confirm payment. That is accurate for payments made outside the app and cautious for payments made inside it. It should be reworded once payments are live.
+- Money does not move between ZedMarket and the seller. Settlement to sellers, fees, and tax are the provider contract's job and are not designed here.
+- Finance staff can read other people's masked phone numbers and provider references. Staff role changes still need two people (tech admin), but nothing stops a finance person looking at payment records without a case.
+- Disputes and payments are not linked automatically: a dispute decision does not start a refund. Finance does that by hand.
+- Two payment attempts at the same instant for one order are stopped by a database rule, but I did not add a timed race test as I did for stock.
+
+### Still needed before Module G can be called done
+
+- Choose a provider or aggregator, check it is authorised in Zambia, and write its worker and webhook handler.
+- Get the legal and regulatory advice above.
+- Run migration 0013 and `payments.sql` on the staging project, schedule `expire_stale_payments` (`docs/SCHEDULED_JOBS.md`).
+- Walk through on a phone with the provider's test mode: pay, fail, time out, cancel, late success, refund.
+
 ## Module E: notifications
 
 Migration `0012_notifications.sql`, tests in `supabase/tests/notifications.sql`.

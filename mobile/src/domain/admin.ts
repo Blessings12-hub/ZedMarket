@@ -69,3 +69,7 @@ export function canChangeAccountState(roles: AdminRole[]): boolean {
 export function canSeeTrustAudit(roles: AdminRole[]): boolean {
   return canReadTrust(roles) || roles.includes('tech_admin');
 }
+
+export function canSeeFinance(roles: AdminRole[]): boolean {
+  return roles.includes('finance');
+}
