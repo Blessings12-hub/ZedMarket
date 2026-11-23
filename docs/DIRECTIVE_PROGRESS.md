@@ -67,6 +67,42 @@ Known limits:
 - Applications are listed by name search only (no date or reviewer filter yet).
 - The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
 
+## Module H: customer support
+
+Migration `0014_support.sql`, tests in `supabase/tests/support.sql`.
+
+What already existed and is unchanged: reports, order disputes with evidence, and appeals against moderation decisions (with their staff screens). This module adds the rest.
+
+| Directive item | What exists | Tested |
+|---|---|---|
+| Support tickets | Anyone signed in can open one, including a suspended account (they need a way to ask). Up to 5 open at once, 5 new per day | Database: yes |
+| Complaint categories | Nine categories in a table (payment problem, scam or safety, order problem, account access, verification, listing, business account, app problem, other), each with a starting priority | Database: yes |
+| Evidence uploads | Up to 5 photos per ticket in a new private bucket `support-evidence`. The file path is checked to sit in the person's own folder for that ticket. Staff open them through short-lived signed links | Paths and limits: yes. Real uploads: **no** |
+| Case tracking | Status (received, being looked at, waiting for the customer, with a senior team member, resolved, closed), a first-reply target time by priority, a late flag, a history of events for staff | Database: yes |
+| Support messaging | A thread per ticket. Staff can add internal notes the customer never sees. The reply notification never contains the reply text | Database: yes |
+| Escalation | A support agent escalates with a written reason. The ticket goes back to the queue with no owner and high priority, and a different person must take it and resolve it. Audited | Database: yes |
+| Resolution records | A resolution code and a written note the customer can read. The customer can reply within 7 days to reopen it. Resolved tickets close by themselves after 7 days. The customer can rate the help once | Database: yes |
+| Customer appeals | Unchanged route. New: the person is now told the outcome of their appeal | Database: yes |
+| Support performance monitoring | Overview (open, late, escalated, unassigned, average first reply, average time to resolve, average rating, tickets by category) and a per-agent table. Tech admins see every agent, other support staff see only themselves | Database: yes |
+| Screens | Customer: Help list, new ticket, ticket thread with photos, rating. Staff: help desk queue with filters and search, ticket detail (take, reply, note, escalate, resolve), team performance | Not run on a phone |
+
+### Known limits
+
+- Staff do not get a notification when a customer replies or a ticket is escalated. They find work in the queue (escalated and late ones sort first). A staff notification channel is a later job.
+- The ticket screens refresh when you open them, not live.
+- Support staff can still read the older private buckets (identity and business documents, dispute evidence) straight from storage without an audit entry. This is the same gap as before; it needs an Edge Function. The new support evidence bucket has the same property.
+- Target times are starter values, not promises. Nothing yet pauses the clock outside working hours.
+- The performance figures can be misused as a ranking. The screen says they are a coaching guide. Whether to use ratings in reviews of staff is for you.
+- Reports and order disputes still live on their own screens. A ticket is not linked to a report or dispute.
+- Messages are English only, like the rest of the app.
+- `close_resolved_tickets` is not scheduled yet (see `docs/SCHEDULED_JOBS.md`). Without it, resolved tickets stay "resolved" and the customer can keep replying.
+
+### Still needed before Module H can be called done
+
+- Run migration 0014 and `support.sql` on the staging project.
+- Walk through on a phone: open a ticket with a photo, see it appear in the help desk, reply both ways, escalate and have another account resolve it, rate it.
+- Decide who is on the support team and how quickly they must reply.
+
 ## Module G: payments
 
 Migration `0013_payments.sql` (it replaces two empty placeholder tables from migrations 0002 and 0004, and refuses to run if they ever contain rows), tests in `supabase/tests/payments.sql`.

@@ -73,3 +73,7 @@ export function canSeeTrustAudit(roles: AdminRole[]): boolean {
 export function canSeeFinance(roles: AdminRole[]): boolean {
   return roles.includes('finance');
 }
+
+export function canWorkTickets(roles: AdminRole[]): boolean {
+  return roles.includes('support') || roles.includes('tech_admin');
+}

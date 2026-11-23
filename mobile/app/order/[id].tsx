@@ -205,6 +205,7 @@ export default function OrderScreen() {
       {role === 'buyer' && payOn && canStartPayment(order.status, 'buyer', orderPayments) ? (
         <Button title="Pay with mobile money" onPress={() => router.push(`/pay/${order.id}`)} />
       ) : null}
+      <Button title="Problem with this order? Ask for help" variant="secondary" onPress={() => router.push(`/support/new?orderId=${order.id}`)} />
       {orderPayments[0] ? (
         <View style={styles.card}>
           <Text style={styles.line}>Payment: {statusLabel(orderPayments[0].status)}</Text>

@@ -20,7 +20,7 @@ export function canTurnOff(category: string): boolean {
 
 // Only paths made of plain characters, and only screens the app really has, are opened from a
 // notification. Anything else (a link from an old version, a bad value) falls back to the inbox.
-const ALLOWED_TOP = new Set(['order', 'listing', 'chat', 'dispute', 'seller', 'business', 'account', 'orders', 'alerts', 'appeal', 'verify']);
+const ALLOWED_TOP = new Set(['order', 'listing', 'chat', 'dispute', 'seller', 'business', 'account', 'orders', 'alerts', 'appeal', 'verify', 'support']);
 
 export function routeForNotification(link: string | null | undefined): string | null {
   if (!link) return null;

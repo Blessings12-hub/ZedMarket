@@ -49,6 +49,12 @@ function AuthGate() {
       <Stack.Screen name="finance/index" options={{ title: 'Finance' }} />
       <Stack.Screen name="finance/payment/[id]" options={{ title: 'Payment' }} />
       <Stack.Screen name="finance/refunds" options={{ title: 'Refunds' }} />
+      <Stack.Screen name="support/index" options={{ title: 'Help' }} />
+      <Stack.Screen name="support/new" options={{ title: 'Ask for help' }} />
+      <Stack.Screen name="support/[id]" options={{ title: 'Your ticket' }} />
+      <Stack.Screen name="helpdesk/index" options={{ title: 'Help desk' }} />
+      <Stack.Screen name="helpdesk/performance" options={{ title: 'Team performance' }} />
+      <Stack.Screen name="helpdesk/ticket/[id]" options={{ title: 'Ticket' }} />
       <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
       <Stack.Screen name="notification-settings" options={{ title: 'Notification settings' }} />
       <Stack.Screen name="checkout/[listingId]" options={{ title: 'Request to buy' }} />

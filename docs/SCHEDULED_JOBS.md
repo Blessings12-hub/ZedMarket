@@ -8,6 +8,7 @@ Some work has to happen on a timer. These are written as database functions that
 | `purge_old_listing_views()` | Deletes browsing history older than 90 days | Once a day |
 | Edge Function `send-notifications` | Sends queued push notifications and reports each result back for retry | Every minute |
 | `expire_stale_payments()` | Closes payments still waiting after 30 minutes as failed | Every minute |
+| `close_resolved_tickets()` | Closes support tickets that were resolved more than 7 days ago | Once an hour |
 | `purge_old_notifications()` | Deletes old read notifications and very old unread ones | Once a day |
 
 The app stays correct without the first one, because a stale reservation is released when the next buyer asks, but requests would stay open past their deadline, and orders would not complete by themselves, until the job runs.

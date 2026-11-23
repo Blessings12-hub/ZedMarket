@@ -92,6 +92,7 @@ export default function AccountScreen() {
         variant="secondary"
         onPress={() => router.push('/notifications')}
       />
+      <Button title="Help and support" variant="secondary" onPress={() => router.push('/support')} />
       <Button title="Payments" variant="secondary" onPress={() => router.push('/payments')} />
       <Button title="Your orders" variant="secondary" onPress={() => router.push('/orders')} />
       <Button title="Get verified" variant="secondary" onPress={() => router.push('/verify')} />
