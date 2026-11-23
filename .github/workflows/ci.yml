@@ -26,6 +26,10 @@ jobs:
         run: supabase/tests/local/run.sh
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      - name: Race checks (many people acting at the same moment)
+        run: supabase/tests/local/concurrency.sh
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
 
   app:
     name: App typecheck and unit tests

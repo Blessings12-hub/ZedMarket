@@ -6,6 +6,9 @@ import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Notice, SectionTitle, VerifiedBadge } from '../../src/components/ui';
 import { formatKwacha } from '../../src/domain/money';
 import { fetchMyRoles } from '../../src/features/admin/api';
+import { countUnreadNotifications, watchNotifications } from '../../src/features/notifications/api';
+import { disablePushForThisPhone } from '../../src/features/notifications/push';
+import { unreadLabel } from '../../src/domain/notifications';
 import { countUnreadAlerts, fetchMyListings } from '../../src/features/listings/api';
 import type { MyListing, VerificationLevel } from '../../src/features/listings/types';
 import { friendlyError } from '../../src/lib/errors';
@@ -30,22 +33,25 @@ export default function AccountScreen() {
   const [listings, setListings] = useState<MyListing[]>([]);
   const [isStaff, setIsStaff] = useState(false);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [unreadNotes, setUnreadNotes] = useState(0);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     if (!userId) return;
     try {
-      const [p, mine, roles, unread] = await Promise.all([
+      const [p, mine, roles, unread, unreadN] = await Promise.all([
         supabase.from('profiles').select('display_name, verification_level, account_state').eq('id', userId).single(),
         fetchMyListings(userId),
         fetchMyRoles(userId).catch(() => []),
         countUnreadAlerts().catch(() => 0),
+        countUnreadNotifications().catch(() => 0),
       ]);
       if (p.error) throw p.error;
       setProfile(p.data as Profile);
       setListings(mine);
       setIsStaff(roles.length > 0);
       setUnreadAlerts(unread);
+      setUnreadNotes(unreadN);
       setError('');
     } catch (e) {
       setError(friendlyError(e));
@@ -55,7 +61,9 @@ export default function AccountScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load]),
+      if (!userId) return undefined;
+      return watchNotifications(userId, () => void countUnreadNotifications().then(setUnreadNotes).catch(() => undefined));
+    }, [load, userId]),
   );
 
   return (
@@ -79,6 +87,12 @@ export default function AccountScreen() {
         ) : null}
       </View>
 
+      <Button
+        title={unreadNotes > 0 ? `Notifications (${unreadLabel(unreadNotes)} new)` : 'Notifications'}
+        variant="secondary"
+        onPress={() => router.push('/notifications')}
+      />
+      <Button title="Payments" variant="secondary" onPress={() => router.push('/payments')} />
       <Button title="Your orders" variant="secondary" onPress={() => router.push('/orders')} />
       <Button title="Get verified" variant="secondary" onPress={() => router.push('/verify')} />
       <Button title="Business tools" variant="secondary" onPress={() => router.push('/business/manage')} />
@@ -113,7 +127,10 @@ export default function AccountScreen() {
         ))
       )}
 
-      <Button title="Sign out" variant="danger" onPress={() => supabase.auth.signOut()} />
+      <Button title="Sign out" variant="danger" onPress={async () => {
+        await disablePushForThisPhone();
+        await supabase.auth.signOut();
+      }} />
     </ScrollView>
   );
 }

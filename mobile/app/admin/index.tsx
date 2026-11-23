@@ -6,6 +6,7 @@ import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
 import {
   canHandleReports,
+  canSeeFinance,
   canManageTeam,
   canModerate,
   canSeeTrustAudit,
@@ -185,8 +186,11 @@ export default function AdminHome() {
         </>
       ) : null}
 
-      {!canModerate(roles) && !canHandleReports(roles) && !canSupport(roles) && !canManageTeam(roles) ? (
-        <Notice>The finance role has no screens yet, because payments come in a later release.</Notice>
+      {canSeeFinance(roles) ? (
+        <>
+          <SectionTitle>Finance</SectionTitle>
+          <Button title="Payments and refunds" variant="secondary" onPress={() => router.push('/finance')} />
+        </>
       ) : null}
     </ScrollView>
   );
