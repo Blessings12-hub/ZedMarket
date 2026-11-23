@@ -67,6 +67,71 @@ Known limits:
 - Applications are listed by name search only (no date or reviewer filter yet).
 - The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
 
+## Module G: payments
+
+Migration `0013_payments.sql` (it replaces two empty placeholder tables from migrations 0002 and 0004, and refuses to run if they ever contain rows), tests in `supabase/tests/payments.sql`.
+
+**Design rule:** ZedMarket records payments, it does not hold money. There is no wallet. Whether this set-up, or any later one that holds funds, needs a licence is a question for a lawyer and the Bank of Zambia, and I cannot answer it.
+
+| Directive item | What exists | Tested |
+|---|---|---|
+| Authorised provider integration | **Not built.** No provider or aggregator has been chosen. The database has the functions a provider worker will call (`record_provider_result`, `record_refund_result`, `expire_stale_payments`, service role only). Payments are switched off (`payments.enabled = 0`) until you turn them on | Functions: yes. A real provider: **no** |
+| MTN Mobile Money, Airtel Money | The buyer picks one and enters a +260 number. Which one a provider supports is for the provider to say | Format and choice: yes |
+| Payment verification | A payment becomes paid only by a provider result (right amount, with a provider reference) or by finance with a provider reference and a written note. The app cannot mark anything paid. The amount is taken from the order by the database, not from the phone | Database: yes |
+| Reconciliation | Finance can settle a waiting payment, or one flagged for checking, by hand against the provider statement. Every reconciliation is audited and finance staff cannot reconcile a payment they are part of | Database: yes |
+| Refund management | Finance requests, a different finance person approves or rejects, then the refund is recorded as sent (or failed) with the reference. Refunds in progress count against the amount, so the total can never go above what was paid | Database: yes |
+| Failed payments | Provider failure, cancel by the buyer, timeout after 30 minutes, and retry (a new attempt is allowed once the old one is closed). A late "paid" report for a closed payment, or a wrong amount, is not applied: it is flagged for finance. Cancelling an order closes its waiting payment and flags a paid one for finance | Database: yes |
+| Payment history | Buyers and sellers see their own payments; the order screen shows the payment state; a Payments screen lists them | Database: yes. Screens: not run |
+| Finance administration | Finance screen: counts and amounts, filters, search, payments needing a check, payment detail with its history, reconcile, refund requests and approvals. Phone numbers are masked | Database: yes. Screens: not run |
+
+### Known limits
+
+- Nothing can actually be paid yet. With no provider connected, a payment started in the app would only wait and time out, which is why it is switched off by default.
+- Provider webhooks (and checking their signatures) will need an Edge Function written for the chosen provider. I did not write a placeholder.
+- The receipt for a completed order still says ZedMarket did not take or confirm payment. That is accurate for payments made outside the app and cautious for payments made inside it. It should be reworded once payments are live.
+- Money does not move between ZedMarket and the seller. Settlement to sellers, fees, and tax are the provider contract's job and are not designed here.
+- Finance staff can read other people's masked phone numbers and provider references. Staff role changes still need two people (tech admin), but nothing stops a finance person looking at payment records without a case.
+- Disputes and payments are not linked automatically: a dispute decision does not start a refund. Finance does that by hand.
+- Two payment attempts at the same instant for one order are stopped by a database rule, but I did not add a timed race test as I did for stock.
+
+### Still needed before Module G can be called done
+
+- Choose a provider or aggregator, check it is authorised in Zambia, and write its worker and webhook handler.
+- Get the legal and regulatory advice above.
+- Run migration 0013 and `payments.sql` on the staging project, schedule `expire_stale_payments` (`docs/SCHEDULED_JOBS.md`).
+- Walk through on a phone with the provider's test mode: pay, fail, time out, cancel, late success, refund.
+
+## Module E: notifications
+
+Migration `0012_notifications.sql`, tests in `supabase/tests/notifications.sql`.
+
+| Directive item | What exists | Tested |
+|---|---|---|
+| In-app notifications | `notifications` table, written only by the database (`notify`). Triggers cover order events, chat messages (never the message text), saved-search alerts, identity and business verification decisions, account suspension and restoring, listing rejection and moderator approval, business invitations, and low stock | Database: yes |
+| Push | Device tokens (`register_push_token`, at most 10 per person, a token moves to whoever registered last), a delivery queue, and an Edge Function `send-notifications` that sends through Expo | Queue: yes. Edge Function and phone: **no** |
+| Email and SMS | Preferences and queue rows exist and are switched off by `notifications.email_enabled` / `notifications.sms_enabled`. **No sender is built**: no provider has been chosen | Gating only |
+| Unread counts | `unread_notification_count()`, live updates through Realtime, badge on the Account screen | Count: yes |
+| History | Inbox screen with category filter, read and unread, mark one or all as read; old ones are purged by `purge_old_notifications` | Database: yes |
+| Preferences | Per category: in-app, push, email, SMS. Account and safety notices cannot be switched off. Switching a category off in-app mutes it completely | Database: yes |
+| Deep links | Stored as plain paths, checked by the database (no `..`, no web addresses) and again by the app against a list of real screens | Both: yes |
+| Retry and duplicates | A repeated event gives one notification (unique key per person). Deliveries are claimed with a 2-minute lease so two workers never take the same one, retried after 1, 5, 30, 120 and 720 minutes, then marked dead. A notification already read, or a token that was switched off or moved, is skipped. Dead tokens reported by Expo are disabled | Database: yes, including races between workers' leases |
+
+### Known limits
+
+- The Edge Function has never been run. Its request and response shapes come from my knowledge of Expo's push service and need checking against Expo's current documentation. It does not read Expo's delivery receipts.
+- Push on a phone needs the `expo-notifications` package, a development or production build and an Expo project id. I did not change `package.json`, so the app loads the package only if it is installed. Nothing was tried on a phone.
+- Nothing is scheduled yet (see `docs/SCHEDULED_JOBS.md`): without the schedule, push is never sent and old notifications are never purged. In-app notifications work without it.
+- Saved-search alerts and chat messages now appear twice: in the older Alerts screen and in the notification inbox. The old screen is kept so nothing is lost.
+- The in-app text is English only. Bemba and Nyanja come with the localisation pass.
+- Who gets what is decided in the triggers. Each text is short and plain; staff should read them before launch.
+
+### Still needed before Module E can be called done
+
+- Run migration 0012 and `notifications.sql` on the real staging project.
+- Deploy `send-notifications`, set its secrets, schedule it, and send a real test push.
+- Choose an email and an SMS provider (cost and Zambian delivery should drive that) and build their senders, or decide not to offer those channels.
+- Walk through on a phone: place an order and see the seller notified, tap it and land on the order, mute a category, sign out and confirm the phone stops receiving.
+
 ## Module C: Business Hub
 
 Status: **built, partly tested.** Database tested (SQL tests, mutation checks and real-connection race tests). Screens type-checked and the permission table unit-tested against the same strings as the database, but never opened on a phone and never run against a real Supabase project.
