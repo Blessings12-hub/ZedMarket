@@ -7,6 +7,7 @@ import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
 import {
   canHandleReports,
   canSeeFinance,
+  canWorkTickets,
   canManageTeam,
   canModerate,
   canSeeTrustAudit,
@@ -183,6 +184,13 @@ export default function AdminHome() {
           <SectionTitle>Administration</SectionTitle>
           <Button title="Staff team" onPress={() => router.push('/admin/team')} />
           <Button title="Audit log" variant="secondary" onPress={() => router.push('/admin/audit')} />
+        </>
+      ) : null}
+
+      {canWorkTickets(roles) ? (
+        <>
+          <SectionTitle>Customer support</SectionTitle>
+          <Button title="Help desk" onPress={() => router.push('/helpdesk')} />
         </>
       ) : null}
 

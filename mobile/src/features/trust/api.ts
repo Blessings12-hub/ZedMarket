@@ -24,9 +24,9 @@ export async function pickOnePhoto(): Promise<string | null> {
   return out.uri;
 }
 
-type PrivateBucket = 'identity-documents' | 'business-documents' | 'dispute-evidence';
+export type PrivateBucket = 'identity-documents' | 'business-documents' | 'dispute-evidence' | 'support-evidence';
 
-async function uploadPrivate(bucket: PrivateBucket, userId: string, folder: string, uri: string): Promise<string> {
+export async function uploadPrivate(bucket: PrivateBucket, userId: string, folder: string, uri: string): Promise<string> {
   const body = await (await fetch(uri)).arrayBuffer();
   const path = `${userId}/${folder}/${Date.now()}.jpg`;
   const { error } = await supabase.storage.from(bucket).upload(path, body, { contentType: 'image/jpeg', upsert: false });
