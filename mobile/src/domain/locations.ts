@@ -41,6 +41,23 @@ export function validateAddress(a: AddressInput): string | null {
   return null;
 }
 
+// Turns what a person typed ("-15.4167", "28.2833", or a pasted "-15.4167, 28.2833") into numbers.
+export function parseCoordinates(latText: string, lngText: string): { lat: number | null; lng: number | null; problem: string | null } {
+  let lat = latText.trim();
+  let lng = lngText.trim();
+  if (lat.includes(',') && !lng) {
+    const parts = lat.split(',');
+    lat = (parts[0] ?? '').trim();
+    lng = (parts[1] ?? '').trim();
+  }
+  if (!lat && !lng) return { lat: null, lng: null, problem: null };
+  const a = Number(lat.replace(',', '.'));
+  const b = Number(lng.replace(',', '.'));
+  if (!lat || !lng || Number.isNaN(a) || Number.isNaN(b)) return { lat: null, lng: null, problem: 'Type both numbers, for example -15.4167 and 28.2833, or leave both empty.' };
+  const problem = coordinatesProblem(a, b);
+  return problem ? { lat: null, lng: null, problem } : { lat: a, lng: b, problem: null };
+}
+
 // One readable line, used for previews. The saved text sent with an order is built by the database.
 export function formatPlace(p: Pick<Place, 'town' | 'area'>): string {
   return p.area ? `${p.area}, ${p.town}` : p.town;

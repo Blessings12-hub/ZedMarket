@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { PlacePicker } from '../../src/components/PlacePicker';
 import { Button, Chip, Field, Notice, SectionTitle } from '../../src/components/ui';
-import { ADDRESS_KIND_LABELS, validateAddress, type AddressKind } from '../../src/domain/locations';
+import { ADDRESS_KIND_LABELS, parseCoordinates, validateAddress, type AddressKind } from '../../src/domain/locations';
 import { listMyAddresses, saveAddress } from '../../src/features/locations/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, spacing } from '../../src/theme';
@@ -19,6 +19,8 @@ export default function EditAddress() {
   const [landmark, setLandmark] = useState('');
   const [directions, setDirections] = useState('');
   const [isDefault, setIsDefault] = useState(false);
+  const [latText, setLatText] = useState('');
+  const [lngText, setLngText] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -30,6 +32,7 @@ export default function EditAddress() {
         if (!a) return;
         setLabel(a.label); setKind(a.kind); setLocationId(a.locationId); setStreet(a.street ?? '');
         setLandmark(a.landmark ?? ''); setDirections(a.directions ?? ''); setIsDefault(a.isDefault);
+        setLatText(a.latitude === null ? '' : String(a.latitude)); setLngText(a.longitude === null ? '' : String(a.longitude));
       })
       .catch((e) => setError(friendlyError(e)));
   }, [id]);
@@ -37,10 +40,12 @@ export default function EditAddress() {
   async function submit() {
     const problem = validateAddress({ label, kind, locationId, street, landmark, directions });
     if (problem || locationId === null) { setError(problem ?? 'Choose the town or area.'); return; }
+    const c = parseCoordinates(latText, lngText);
+    if (c.problem) { setError(c.problem); return; }
     setBusy(true);
     setError('');
     try {
-      await saveAddress({ id: id ?? null, label, kind, locationId, street, landmark, directions, isDefault });
+      await saveAddress({ id: id ?? null, label, kind, locationId, street, landmark, directions, isDefault, latitude: c.lat, longitude: c.lng });
       router.back();
     } catch (e) {
       setError(friendlyError(e));
@@ -62,6 +67,9 @@ export default function EditAddress() {
       <Field label="Street or plot (optional if you add a landmark)" value={street} onChangeText={setStreet} maxLength={150} />
       <Field label="Landmark" value={landmark} onChangeText={setLandmark} placeholder="For example: opposite the filling station" maxLength={150} />
       <Field label="Directions for a driver or buyer (optional)" value={directions} onChangeText={setDirections} multiline maxLength={300} />
+      <Field label="Exact position (optional)" value={latText} onChangeText={setLatText} placeholder="Latitude, for example -15.4167" keyboardType="numbers-and-punctuation" />
+      <Field label="" value={lngText} onChangeText={setLngText} placeholder="Longitude, for example 28.2833" keyboardType="numbers-and-punctuation" />
+      <Notice>To get these, open the place in your Maps app, press and hold it, and copy the two numbers. Buyers then get an "Open in Maps" link.</Notice>
       <View style={styles.row}>
         <Chip label={isDefault ? 'Default address ✓' : 'Make this my default'} selected={isDefault} onPress={() => setIsDefault(!isDefault)} />
       </View>

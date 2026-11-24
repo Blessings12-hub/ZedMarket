@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { areasIn, coordinatesProblem, coverageMessage, deliverySummary, districtsIn, formatPlace, mapsLink, provinces, townsIn, validateAddress, type Place } from './locations';
+import { parseCoordinates, areasIn, coordinatesProblem, coverageMessage, deliverySummary, districtsIn, formatPlace, mapsLink, provinces, townsIn, validateAddress, type Place } from './locations';
 
 const places: Place[] = [
   { id: 1, province: 'Lusaka', district: 'Lusaka', town: 'Lusaka', area: null },
@@ -60,4 +60,13 @@ test('maps link only with real coordinates', () => {
   assert.equal(mapsLink(null, null), null);
   assert.equal(mapsLink(10, 10), null);
   assert.equal(mapsLink(-15.4, 28.3), 'https://www.google.com/maps/search/?api=1&query=-15.4,28.3');
+});
+
+test('typed coordinates are parsed, pasted pairs are split, bad ones are explained', () => {
+  assert.deepEqual(parseCoordinates('', ''), { lat: null, lng: null, problem: null });
+  assert.deepEqual(parseCoordinates('-15.4167', '28.2833'), { lat: -15.4167, lng: 28.2833, problem: null });
+  assert.deepEqual(parseCoordinates('-15.4167, 28.2833', ''), { lat: -15.4167, lng: 28.2833, problem: null });
+  assert.ok(parseCoordinates('-15.4', '').problem);
+  assert.ok(parseCoordinates('abc', '28').problem);
+  assert.ok(parseCoordinates('40', '28').problem);
 });
