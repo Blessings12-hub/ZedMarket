@@ -47,6 +47,7 @@ export default function MyBusinesses() {
           <Text style={styles.name}>{b.name}</Text>
           <Text style={styles.text}>{ROLE_LABELS[b.role]}</Text>
           <Button title="Open" onPress={() => router.push({ pathname: '/business/manage/[id]', params: { id: b.businessId } })} />
+          <Button title="Business numbers" variant="secondary" onPress={() => router.push({ pathname: '/analytics', params: { business: b.businessId } })} />
           <Button title="View public page" variant="secondary" onPress={() => router.push({ pathname: '/business/[slug]', params: { slug: b.slug } })} />
         </View>
       ))}

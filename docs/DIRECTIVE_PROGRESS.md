@@ -7,13 +7,13 @@ Status words used here: **Done** means built and tested through the whole user j
 | 1. Stabilise existing work | Built, partly tested. Migrations and database security tests run in GitHub Actions and locally. Not yet tested: real sign-up and recovery, uploads, chat delivery, screen journeys. |
 | A. Advanced marketplace | Built, partly tested. See below. |
 | B. Order management | Built, partly tested. See below. |
-| C. Business hub | Not started |
+| C. Business hub | Built, partly tested. |
 | D. Delivery and logistics | Not started |
-| E. Notifications | Not started |
+| E. Notifications | Built, partly tested. See `docs/SCHEDULED_JOBS.md` for what is not scheduled. |
 | F. Trust and safety (advanced) | Not started |
-| G. Payments | Not started |
-| H. Customer support | Not started |
-| I. Analytics | Not started |
+| G. Payments | Built, partly tested. A ledger, off by default; no payment provider is connected. |
+| H. Customer support | Built, partly tested. See Module H below. |
+| I. Analytics | Built, partly tested, except delivery performance (needs Module D). See Module I below. |
 | J. Monetisation | Not started |
 | K. Location management | Not started |
 | L. Web administration dashboard | Not started |
@@ -66,6 +66,38 @@ Known limits:
 - Support can still read the private document buckets directly through storage (the 0005 policy). The audit entry is written by the screen's path, so a person with support access who goes around the app is not logged. Closing that needs documents to be served by an Edge Function with the service key; not built.
 - Applications are listed by name search only (no date or reviewer filter yet).
 - The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
+
+## Module I: analytics
+
+Migration `0016_analytics.sql` (0015 is the staff voting migration), tests in `supabase/tests/analytics.sql`. Read-only: it adds functions and nine indexes, and changes no existing table.
+
+| Directive item | What exists | Tested |
+|---|---|---|
+| Seller analytics | Views, people who looked, chats, orders requested, saves, completed orders and value, average order, handling times, not-completed share, reviews, best listings, a day-by-day series. Personal listings only, or one business | Database: yes |
+| Business analytics | The same figures for one business. Owner and manager only (`view_analytics`); plain staff members and outsiders are refused | Database: yes |
+| Product performance | One listing: views, saves, chats, orders, conversion rates, days listed, stock | Database: yes |
+| Sales reporting | Completed orders by day, week or month, and by listing, for up to a year. Shareable as CSV text from the screen. Cells that start with = + - or @ are quoted so a spreadsheet cannot run them | Database and CSV logic: yes |
+| Customer engagement | Chats answered, first reply time, chats waiting over 24 hours, repeat and new customers. Buyers are counted, never named | Database: yes |
+| Platform statistics | Technical admin and finance only: people, businesses, listings, orders, chats, reviews, daily series | Database: yes |
+| Fraud and dispute statistics | Moderators, support and technical admin: reports, disputes, appeals, risk flags, restricted and suspended accounts, verification queues | Database: yes |
+| Financial reporting | Finance and technical admin only, two-factor required. Every run writes an audit record. Counts only payments made through the app | Database: yes |
+| Delivery performance | **Not built.** It needs delivery tracking, which is Module D | n/a |
+| Screens | My numbers, business numbers, listing numbers, sales report, staff statistics | Not run on a phone |
+
+### Known limits
+
+- Money figures count item prices of completed orders. Delivery fees are shown separately. Many deals are paid in person, so these are sales records, not bank figures, and the screen says so. They are not tax or accounting statements.
+- Page views are only kept for 90 days, so a longer window shows 90 days of views and says so.
+- A view is counted at most once an hour per person, so a person can chat or order without a recorded view. Conversion rates are capped at 100%.
+- Figures are worked out live on each open, not pre-computed. With a lot of data they will slow down; the indexes help but this has not been tested with large amounts of data.
+- Times and day boundaries use Zambia time (Africa/Lusaka).
+- Everything is English only.
+
+### Still needed before Module I can be called done
+
+- Run migration 0016 and `analytics.sql` on the staging project.
+- Open each screen on a phone with real orders and check the numbers against what you expect.
+- Decide who on staff should see platform and finance figures.
 
 ## Module H: customer support
 
