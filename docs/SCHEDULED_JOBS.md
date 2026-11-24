@@ -11,6 +11,8 @@ Some work has to happen on a timer. These are written as database functions that
 | `close_resolved_tickets()` | Closes support tickets that were resolved more than 7 days ago | Once an hour |
 | `purge_old_notifications()` | Deletes old read notifications and very old unread ones | Once a day |
 | `staff_vote_tick()` | Opens staff votes whose start time has come and closes votes whose deadline has passed (migration 0015) | Every 5 minutes |
+| `run_staff_birthdays()` | Creates today's staff birthday events (organisation timezone) and sends the greeting and the colleague notices, once each (migration 0017) | Every 15 minutes |
+| `purge_old_birthday_access_logs()` | Deletes birthday calendar and board access logs older than 90 days | Once a day |
 
 The app stays correct without the first one, because a stale reservation is released when the next buyer asks, but requests would stay open past their deadline, and orders would not complete by themselves, until the job runs.
 
@@ -31,8 +33,10 @@ select cron.schedule('zedmarket-views', '17 3 * * *', $$select public.purge_old_
 
 Staff voting: `select cron.schedule('zedmarket-votes', '*/5 * * * *', $$select public.staff_vote_tick()$$);`. Without it the app stays correct, because every list, detail view, vote and cancel first moves any due vote forward, but a vote nobody opens would stay open past its deadline and its closing notice would wait until someone does. It is granted to `service_role` only. Untested on a real Supabase project.
 
+Staff birthdays: `select cron.schedule('zedmarket-birthdays', '*/15 * * * *', $$select public.run_staff_birthdays()$$);` and `select cron.schedule('zedmarket-birthday-logs', '29 3 * * *', $$select public.purge_old_birthday_access_logs()$$);`. Running the first one often is safe: a second run, or two at once, sends nothing twice. Every 15 minutes means greetings go out within 15 minutes after midnight in the organisation timezone. **If it is never scheduled, no birthday greeting or notice is ever sent** (the calendar and message boards still work). Both are granted to `service_role` only. Untested on a real Supabase project.
+
 To stop one: `select cron.unschedule('zedmarket-orders');`.
 
 ## Settings you can change
 
-In the `platform_settings` table: `payments.enabled` (0 = off), `payments.expiry_minutes` (30), `rate_limit.payment.max` (5), `order.request_expiry_hours` (48), `order.confirmed_expiry_days` (7), `order.auto_complete_days` (3), `rate_limit.order.max` (10) and `rate_limit.order.window_minutes` (60). Staff voting: `staff_vote.min_eligible` (3), `staff_vote.min_hours` (24), `staff_vote.max_hours` (336), `staff_vote.proposer_roles` (all four staff roles) and `rate_limit.staff_proposal.max` (10 a day). All are starting values that need a decision, not final choices.
+In the `platform_settings` table: `payments.enabled` (0 = off), `payments.expiry_minutes` (30), `rate_limit.payment.max` (5), `order.request_expiry_hours` (48), `order.confirmed_expiry_days` (7), `order.auto_complete_days` (3), `rate_limit.order.max` (10) and `rate_limit.order.window_minutes` (60). Staff voting: `staff_vote.min_eligible` (3), `staff_vote.min_hours` (24), `staff_vote.max_hours` (336), `staff_vote.proposer_roles` (all four staff roles) and `rate_limit.staff_proposal.max` (10 a day). Staff birthdays: `org.timezone` ("Africa/Lusaka"; any name from `pg_timezone_names`, an unknown name falls back to Lusaka), `staff_birthday.message_days` (3), `staff_birthday.max_messages_per_sender` (3), `rate_limit.birthday_profile.max` (5 a day), `rate_limit.birthday_message.max` (30 an hour) and `rate_limit.birthday_report.max` (10 an hour). All are starting values that need a decision, not final choices.
