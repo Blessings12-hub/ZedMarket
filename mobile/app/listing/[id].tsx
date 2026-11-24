@@ -5,6 +5,8 @@ import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, Share, StyleSh
 import { useAuth } from '../../src/auth/AuthProvider';
 import { ListingRail } from '../../src/components/ListingRail';
 import { Button, Notice, SectionTitle, VerifiedBadge } from '../../src/components/ui';
+import { deliverySummary } from '../../src/domain/locations';
+import { fetchListingDeliveryInfo } from '../../src/features/locations/api';
 import { startConversation } from '../../src/features/chat/api';
 import { fetchMyRoles } from '../../src/features/admin/api';
 import {
@@ -36,6 +38,7 @@ export default function ListingScreen() {
   const signedIn = !!session;
 
   const [listing, setListing] = useState<ListingDetail | null>(null);
+  const [deliversTo, setDeliversTo] = useState<string | null>(null);
   const [stats, setStats] = useState<SellerStats | null>(null);
   const [saved, setSaved] = useState(false);
   const [similar, setSimilar] = useState<ListingSummary[]>([]);
@@ -49,6 +52,7 @@ export default function ListingScreen() {
     try {
       const detail = await fetchListing(id, signedIn);
       setListing(detail);
+      fetchListingDeliveryInfo(id).then((i) => setDeliversTo(deliverySummary(i))).catch(() => setDeliversTo(null));
       const [sellerStats, fav, more, roles, isReserved] = await Promise.all([
         fetchSellerStats(detail.sellerId).catch(() => null),
         signedIn ? isFavourite(id).catch(() => false) : Promise.resolve(false),
@@ -212,6 +216,7 @@ export default function ListingScreen() {
           <SectionTitle>Seller</SectionTitle>
           <Text style={styles.sellerName}>{listing.sellerName}</Text>
           <VerifiedBadge level={listing.sellerLevel} />
+          {deliversTo ? <Text style={styles.meta}>{deliversTo}</Text> : null}
           <Button title="View seller page" variant="secondary" onPress={() => router.push(`/seller/${listing.sellerId}`)} />
           <Text style={styles.meta}>
             {stats && stats.reviewCount > 0

@@ -29,6 +29,7 @@ export default function BusinessDashboard() {
         <>
           <SectionTitle>Shop setup</SectionTitle>
           {roleCan(role, 'manage_branches') ? <Button title="Branches" variant="secondary" onPress={() => go('/business/manage/[id]/branches')} /> : null}
+          {roleCan(role, 'manage_branches') ? <Button title="Where we deliver" variant="secondary" onPress={() => router.push({ pathname: '/delivery/areas', params: { businessId: id } })} /> : null}
           {roleCan(role, 'manage_catalogues') ? <Button title="Catalogues" variant="secondary" onPress={() => go('/business/manage/[id]/catalogues')} /> : null}
           <Button title="View public page" variant="secondary" onPress={() => router.push({ pathname: '/business/[slug]', params: { slug } })} />
         </>

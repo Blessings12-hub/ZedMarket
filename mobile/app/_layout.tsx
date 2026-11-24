@@ -36,6 +36,9 @@ function AuthGate() {
       <Stack.Screen name="listing/[id]" options={{ title: 'Listing' }} />
       <Stack.Screen name="chat/[id]" options={{ title: 'Chat' }} />
       <Stack.Screen name="report" options={{ title: 'Report', presentation: 'modal' }} />
+      <Stack.Screen name="addresses/index" options={{ title: 'Saved addresses' }} />
+      <Stack.Screen name="addresses/edit" options={{ title: 'Address' }} />
+      <Stack.Screen name="delivery/areas" options={{ title: 'Where I deliver' }} />
       <Stack.Screen name="orders" options={{ title: 'Your orders' }} />
       <Stack.Screen name="saved" options={{ title: 'Saved items' }} />
       <Stack.Screen name="verify/index" options={{ title: 'Get verified' }} />

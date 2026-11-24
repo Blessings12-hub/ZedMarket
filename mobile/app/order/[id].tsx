@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
+import { SharePickup } from '../../src/components/SharePickup';
 import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
 import { canStartPayment, statusLabel } from '../../src/domain/payments';
 import { fetchMyPayments, paymentsEnabled, type MyPayment } from '../../src/features/payments/api';
@@ -195,6 +196,7 @@ export default function OrderScreen() {
         <Text style={styles.meta}>
           {order.fulfilment === 'delivery' ? `Delivery to: ${order.deliveryAddress}` : 'Collection: you arrange the meeting with the seller'}
         </Text>
+        {order.fulfilment === 'collection' && order.pickupText ? <Text style={styles.meta}>Pickup address: {order.pickupText}</Text> : null}
         {order.buyerNote ? <Text style={styles.meta}>Buyer's note: {order.buyerNote}</Text> : null}
         <Text style={styles.meta}>
           {paidInApp
@@ -205,6 +207,7 @@ export default function OrderScreen() {
       {role === 'buyer' && payOn && canStartPayment(order.status, 'buyer', orderPayments) ? (
         <Button title="Pay with mobile money" onPress={() => router.push(`/pay/${order.id}`)} />
       ) : null}
+      {role === 'seller' && order.fulfilment === 'collection' && order.status === 'confirmed' ? <SharePickup orderId={order.id} onDone={load} /> : null}
       <Button title="Problem with this order? Ask for help" variant="secondary" onPress={() => router.push(`/support/new?orderId=${order.id}`)} />
       {orderPayments[0] ? (
         <View style={styles.card}>

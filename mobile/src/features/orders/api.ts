@@ -18,6 +18,7 @@ export type Order = {
   total: number;
   fulfilment: Fulfilment;
   deliveryAddress: string | null;
+  pickupText: string | null;
   buyerNote: string | null;
   status: OrderStatus;
   cancelKind: CancelKind | null;
@@ -53,6 +54,7 @@ type RawOrder = {
   total_zmw: number;
   fulfilment: Fulfilment;
   delivery_address: string | null;
+  pickup_text: string | null;
   buyer_note: string | null;
   status: OrderStatus;
   cancel_kind: CancelKind | null;
@@ -81,6 +83,7 @@ function toOrder(r: RawOrder): Order {
     total: Number(r.total_zmw),
     fulfilment: r.fulfilment,
     deliveryAddress: r.delivery_address,
+    pickupText: r.pickup_text,
     buyerNote: r.buyer_note,
     status: r.status,
     cancelKind: r.cancel_kind,
@@ -102,13 +105,15 @@ async function call(fn: string, args: Record<string, unknown>): Promise<Order> {
 
 export const requestToBuy = (
   listingId: string,
-  options: { fulfilment: Fulfilment; address: string; note: string } = { fulfilment: 'collection', address: '', note: '' },
+  options: { fulfilment: Fulfilment; address: string; note: string; locationId?: number | null; savedAddressId?: string | null } = { fulfilment: 'collection', address: '', note: '' },
 ) =>
   call('create_order', {
     p_listing_id: listingId,
     p_fulfilment: options.fulfilment,
     p_delivery_address: options.fulfilment === 'delivery' ? options.address.trim() : null,
     p_note: options.note.trim() || null,
+    p_delivery_location_id: options.fulfilment === 'delivery' ? options.locationId ?? null : null,
+    p_saved_address: options.fulfilment === 'delivery' ? options.savedAddressId ?? null : null,
   });
 
 export const confirmOrder = (orderId: string, deliveryFee: number) =>

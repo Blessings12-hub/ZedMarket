@@ -67,6 +67,25 @@ Known limits:
 - Applications are listed by name search only (no date or reviewer filter yet).
 - The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
 
+## Module K: location management
+
+Migration `0018_locations.sql` (run by hand after `0017`), tests in `supabase/tests/locations.sql`.
+
+### Built and tested (database)
+- Places gain a district and optional coordinates (inside Zambia only). Only a tech admin can add places or set coordinates, and each is audited. Existing places are treated as Lusaka district.
+- Saved addresses (delivery, pickup or both) with landmark and directions, one default, a per-person limit set in platform settings. Only the owner can read them; staff cannot.
+- Delivery areas for a personal seller or a business (area, town, district or province level). A seller with none set is unrestricted, as before. Buying with delivery is refused outside the seller's places, and a saved address fills in the order's address text.
+- A seller can share one of their own pickup addresses on a confirmed collection order.
+- Nearby ranking: same area, then town, then district, then province, then by distance when coordinates exist.
+
+### Built (phone app, typechecked and unit tested, never run on a phone)
+- Province, district, town, area picker; saved addresses list and edit; "Where I deliver" for sellers and businesses; checkout address choice with a coverage message; "Delivers to" on a listing; pickup address share and display on orders; Home "nearby" uses the new ranking; Saved addresses in the Account settings.
+
+### Known limits (honest)
+- No map picker and no phone GPS: both need a map package or provider key that has not been added. Coordinates exist only if staff set them; the app never guesses a position. "Open in Maps" appears only for an address that has coordinates, and the app cannot set those yet.
+- Only Lusaka places exist. Staff must add other provinces, districts and towns with `admin_add_location`; no place data was invented.
+- Distance is straight line, not road distance. Delivery fees are still set by the seller; there is no zone pricing (that belongs to Module D).
+
 ## Account Hub (Profile tab)
 
 A separate brief, done as a layer over existing screens with no database changes. See `docs/CHANGE_REPORT_ACCOUNT_HUB.md` for what was added, what was reused and what is not done (deliveries, promotions, bulk upload, phone verification, device list, privacy and language settings).
