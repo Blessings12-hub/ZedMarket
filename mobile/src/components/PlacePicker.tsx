@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { areasIn, districtsIn, formatPlace, provinces, townsIn, type Place } from '../domain/locations';
+import { formatPlace, provinces, type Place } from '../domain/locations';
 import { loadPlaces } from '../features/locations/api';
 import { colors, spacing } from '../theme';
 import { Chip, Notice } from './ui';
@@ -9,41 +9,36 @@ import { Chip, Notice } from './ui';
 type Props = {
   value: number | null;
   onChange: (id: number | null, place: Place | null) => void;
-  // When true the town on its own (no named area) can be chosen. Delivery areas use this; addresses need a place.
+  // When true, a town on its own (no named area) can be chosen, shown as "All of <town>".
   allowTownOnly?: boolean;
   label?: string;
 };
 
-// Province -> district -> town -> area. Plain chips, so it works on a small screen and a slow connection.
+// Pick a province, then see every area in it straight away. Plain chips, so it works on a small screen and a slow connection.
 export function PlacePicker({ value, onChange, label = 'Where?', allowTownOnly = true }: Props) {
   const [places, setPlaces] = useState<Place[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [province, setProvince] = useState<string | null>(null);
-  const [district, setDistrict] = useState<string | null>(null);
-  const [town, setTown] = useState<string | null>(null);
 
   useEffect(() => {
     loadPlaces().then(setPlaces).catch(() => setFailed(true));
   }, []);
 
-  // Open on the current value's branch.
+  // Open on the current value's province, or on the only province when there is just one.
   useEffect(() => {
-    if (!places || value === null) return;
-    const p = places.find((x) => x.id === value);
-    if (p) {
-      setProvince(p.province);
-      setDistrict(p.district);
-      setTown(p.town);
-    }
+    if (!places) return;
+    const current = value !== null ? places.find((x) => x.id === value) : null;
+    if (current) setProvince(current.province);
+    else if (provinces(places).length === 1) setProvince(provinces(places)[0] ?? null);
   }, [places, value]);
 
   if (failed) return <Notice tone="error">Could not load places. Check your connection and try again.</Notice>;
   if (!places) return <Text style={styles.hint}>Loading places…</Text>;
 
+  const inProvince = province ? places.filter((p) => p.province === province && (p.area !== null || allowTownOnly)) : [];
+  const manyTowns = new Set(inProvince.map((p) => p.town)).size > 1;
+  const sorted = [...inProvince].sort((a, b) => a.town.localeCompare(b.town) || (a.area ?? '').localeCompare(b.area ?? ''));
   const chosen = value !== null ? places.find((p) => p.id === value) : null;
-  const districts = province ? districtsIn(places, province) : [];
-  const towns = province && district ? townsIn(places, province, district) : [];
-  const areas = province && district && town ? areasIn(places, province, district, town) : [];
 
   return (
     <View style={styles.box}>
@@ -51,38 +46,21 @@ export function PlacePicker({ value, onChange, label = 'Where?', allowTownOnly =
       <Text style={styles.step}>Province</Text>
       <View style={styles.row}>
         {provinces(places).map((p) => (
-          <Chip key={p} label={p} selected={province === p} onPress={() => { setProvince(p); setDistrict(null); setTown(null); onChange(null, null); }} />
+          <Chip key={p} label={p} selected={province === p} onPress={() => { setProvince(p); onChange(null, null); }} />
         ))}
       </View>
       {province ? (
         <>
-          <Text style={styles.step}>District</Text>
+          <Text style={styles.step}>Area in {province}</Text>
           <View style={styles.row}>
-            {districts.map((d) => (
-              <Chip key={d} label={d} selected={district === d} onPress={() => { setDistrict(d); setTown(null); onChange(null, null); }} />
+            {sorted.map((a) => (
+              <Chip
+                key={a.id}
+                label={a.area ? (manyTowns ? `${a.area}, ${a.town}` : a.area) : `All of ${a.town}`}
+                selected={value === a.id}
+                onPress={() => onChange(a.id, a)}
+              />
             ))}
-          </View>
-        </>
-      ) : null}
-      {district ? (
-        <>
-          <Text style={styles.step}>Town</Text>
-          <View style={styles.row}>
-            {towns.map((t) => (
-              <Chip key={t} label={t} selected={town === t} onPress={() => { setTown(t); onChange(null, null); }} />
-            ))}
-          </View>
-        </>
-      ) : null}
-      {town ? (
-        <>
-          <Text style={styles.step}>Area</Text>
-          <View style={styles.row}>
-            {areas
-              .filter((a) => a.area !== null || allowTownOnly)
-              .map((a) => (
-                <Chip key={a.id} label={a.area ?? `All of ${a.town}`} selected={value === a.id} onPress={() => onChange(a.id, a)} />
-              ))}
           </View>
         </>
       ) : null}

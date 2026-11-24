@@ -134,7 +134,7 @@ insert into zm_loc select 'Lusaka town', l.id from public.locations l where l.to
 
 -- 1. Staff add and correct places
 select zm_test.act_as(:'F2', 'aal2');
-insert into zm_loc select 'Ndola', id from public.locations where province = 'Copperbelt' and town = 'Ndola' and area is null;
+insert into zm_loc select 'Ndola', public.admin_add_location('Copperbelt', 'Ndola', 'Ndola');
 insert into zm_loc select 'Kitwe', public.admin_add_location('Copperbelt', 'Kitwe', 'Kitwe', 'Parklands');
 select public.admin_set_location_coordinates((select id from zm_loc where name = 'Kabulonga'), -15.40, 28.33);
 select public.admin_set_location_coordinates((select id from zm_loc where name = 'Chilenje'), -15.45, 28.30);
@@ -144,7 +144,7 @@ select zm_test.expect_error($$select public.admin_add_location('Lusaka', 'Lusaka
 select zm_test.expect_error($$select public.admin_add_location('Lusaka', 'Lusaka', 'Rome', null, 51.0, 12.0)$$, 'coordinates outside Zambia');
 select zm_test.expect_error($$select public.admin_add_location('Lusaka', 'Lusaka', 'Half', null, -15.0, null)$$, 'one coordinate only');
 select zm_test.expect_error($$select public.admin_set_location_coordinates(999999, -15.0, 28.0)$$, 'place that does not exist');
-select zm_test.expect_equal((select count(*)::text from public.audit_logs where action in ('location.add', 'location.coordinates')), '3', 'every change is audited');
+select zm_test.expect_equal((select count(*)::text from public.audit_logs where action in ('location.add', 'location.coordinates')), '4', 'every change is audited');
 select zm_test.act_as(:'F2', 'aal1');
 select zm_test.expect_error($$select public.admin_add_location('Lusaka', 'Lusaka', 'Nope')$$, 'two-factor needed');
 select zm_test.act_as(:'MOD', 'aal2');
@@ -281,9 +281,9 @@ update public.platform_settings set value = '30' where key = 'delivery.max_areas
 select zm_test.expect_equal((select count(*)::text from public.delivery_areas where owner_user_id = :'S'), '2', 'a failed change leaves the old list');
 -- the district level needs a district
 select zm_test.act_as_admin();
-insert into public.locations (province, town, area) values ('Southern', 'Mazabuka', null);
+insert into public.locations (province, town, area) values ('Southern', 'Choma', null);
 select zm_test.act_as(:'S');
-select zm_test.expect_error($$select public.set_delivery_areas(null, jsonb_build_array(jsonb_build_object('location_id', (select id from public.locations where town = 'Mazabuka'), 'level', 'district')))$$, 'district level on a place with no district');
+select zm_test.expect_error($$select public.set_delivery_areas(null, jsonb_build_array(jsonb_build_object('location_id', (select id from public.locations where town = 'Choma'), 'level', 'district')))$$, 'district level on a place with no district');
 -- others cannot touch it
 select zm_test.act_as(:'C');
 select zm_test.expect_equal((select count(*)::text from public.my_delivery_areas(null)), '0', 'another person has their own empty list');
