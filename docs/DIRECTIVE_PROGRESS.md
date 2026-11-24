@@ -67,6 +67,10 @@ Known limits:
 - Applications are listed by name search only (no date or reviewer filter yet).
 - The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
 
+## Account Hub (Profile tab)
+
+A separate brief, done as a layer over existing screens with no database changes. See `docs/CHANGE_REPORT_ACCOUNT_HUB.md` for what was added, what was reused and what is not done (deliveries, promotions, bulk upload, phone verification, device list, privacy and language settings).
+
 ## Module I: analytics
 
 Migration `0016_analytics.sql` (0015 is the staff voting migration), tests in `supabase/tests/analytics.sql`. Read-only: it adds functions and nine indexes, and changes no existing table.
