@@ -276,10 +276,103 @@ for i in $(seq 1 "$N"); do
   [ "$qty" = "0" ] && [ "$st" = "unavailable" ] || fail "s7 item $i: quantity $qty, listing $st (want 0 and unavailable)"
 done
 
+
+# ---------------------------------------------------------------------------------------------------------------
+# Staff voting (migration 0015)
+# ---------------------------------------------------------------------------------------------------------------
+# Nine staff. Staff 1 and 2 are technical admins. Each worker is signed in with two-factor (aal2).
+scratch <<SQL >/dev/null
+insert into auth.users (id, email, raw_user_meta_data)
+select ('00000000-0000-0000-0000-0000000001' || lpad(n::text, 2, '0'))::uuid, 'vstaff' || n || '@example.test',
+       json_build_object('display_name', 'Voter ' || n)::jsonb
+  from generate_series(1, 9) n;
+insert into public.admin_roles (user_id, role)
+select ('00000000-0000-0000-0000-0000000001' || lpad(n::text, 2, '0'))::uuid, case when n <= 2 then 'tech_admin' else 'moderator' end::public.admin_role
+  from generate_series(1, 9) n;
+update public.platform_settings set value = '0' where key = 'staff_vote.min_hours';
+update public.platform_settings set value = '1000' where key = 'rate_limit.staff_proposal.max';
+create table public.vote_plan (scenario text, slot integer, proposal_id uuid);
+create function public.vstaff(n integer) returns uuid language sql immutable as \$\$
+  select ('00000000-0000-0000-0000-0000000001' || lpad(n::text, 2, '0'))::uuid \$\$;
+SQL
+
+# Opens N proposals for a scenario, then casts the given number of FOR votes by staff 1.. on each.
+vote_plan() {
+  local scenario="$1" pre_for="$2"
+  scratch <<SQL >/dev/null
+do \$\$
+declare i integer; k integer; pid uuid;
+begin
+  for i in 1..$N loop
+    perform set_config('request.jwt.claims', json_build_object('sub', public.vstaff(1), 'role', 'authenticated', 'aal', 'aal2')::text, false);
+    pid := public.create_staff_proposal('Race proposal ' || i || ' ' || '$scenario', 'A description that is long enough.', 'A reason that is long enough.', false, true);
+    perform public.submit_staff_proposal(pid, null, now() + interval '2 days');
+    for k in 1..$pre_for loop
+      perform set_config('request.jwt.claims', json_build_object('sub', public.vstaff(k), 'role', 'authenticated', 'aal', 'aal2')::text, false);
+      perform public.cast_staff_vote(pid, 'for');
+    end loop;
+    insert into public.vote_plan values ('$scenario', i, pid);
+  end loop;
+  perform set_config('request.jwt.claims', '', false);
+end \$\$;
+SQL
+}
+
+# Like worker(), but signed in with two-factor, as staff members must be.
+staff_worker() {
+  local tag="$1" n="$2" sql="$3"
+  (
+    psql "$SCRATCH_URL" -X -q -v ON_ERROR_STOP=0 >"$WORK/$tag.out" 2>"$WORK/$tag.err" <<SQL
+set role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', public.vstaff($n), 'role', 'authenticated', 'aal', 'aal2')::text, false);
+select pg_advisory_lock_shared(7777);
+$sql
+SQL
+  ) &
+}
+
+echo "Scenario 8: one staff member votes twice at the same moment"
+vote_plan s8 0
+race
+for i in $(seq 1 "$N"); do
+  pid=$(q "select proposal_id from public.vote_plan where scenario='s8' and slot=$i")
+  staff_worker "s8_${i}_a" 3 "select public.cast_staff_vote('$pid', 'for');"
+  staff_worker "s8_${i}_b" 3 "select public.cast_staff_vote('$pid', 'against');"
+done
+wait_for_workers
+for i in $(seq 1 "$N"); do
+  pid=$(q "select proposal_id from public.vote_plan where scenario='s8' and slot=$i")
+  rows=$(q "select count(*) from public.staff_votes where proposal_id='$pid' and voter_id=public.vstaff(3)")
+  [ "$rows" = "1" ] || fail "s8 proposal $i: $rows vote rows for one person (want exactly 1)"
+done
+
+echo "Scenario 9: the deciding votes arrive together (5 FOR already in; 2 FOR and 2 AGAINST land at once, 6 needed of 9)"
+vote_plan s9 5
+race
+for i in $(seq 1 "$N"); do
+  pid=$(q "select proposal_id from public.vote_plan where scenario='s9' and slot=$i")
+  staff_worker "s9_${i}_6" 6 "select public.cast_staff_vote('$pid', 'for');"
+  staff_worker "s9_${i}_7" 7 "select public.cast_staff_vote('$pid', 'against');"
+  staff_worker "s9_${i}_8" 8 "select public.cast_staff_vote('$pid', 'against');"
+  staff_worker "s9_${i}_9" 9 "select public.cast_staff_vote('$pid', 'for');"
+done
+wait_for_workers
+for i in $(seq 1 "$N"); do
+  pid=$(q "select proposal_id from public.vote_plan where scenario='s9' and slot=$i")
+  st=$(q "select status from public.staff_proposals where id='$pid'")
+  res=$(q "select count(*) from public.staff_vote_results where proposal_id='$pid'")
+  closed=$(q "select count(*) from public.staff_vote_audit_logs where proposal_id='$pid' and action='closed'")
+  match=$(q "select count(*) from public.staff_vote_results r where r.proposal_id='$pid'
+               and r.for_count = (select count(*) from public.staff_votes v where v.proposal_id=r.proposal_id and v.choice='for')
+               and r.against_count = (select count(*) from public.staff_votes v where v.proposal_id=r.proposal_id and v.choice='against')")
+  [ "$st" = "approved" ] && [ "$res" = "1" ] && [ "$closed" = "1" ] && [ "$match" = "1" ] \
+    || fail "s9 proposal $i: status=$st results=$res closed_audit_rows=$closed result_matches_ballots=$match (want approved, 1, 1, 1)"
+done
+
 # Every error a worker saw must be one of the polite refusals. A deadlock or a raw database
 # error (such as a duplicate key) means the locking is not doing its job, even if the end state looks right.
 unexpected=$(cat "$WORK"/*.err 2>/dev/null | grep -i "error" \
-  | grep -v -e "not allowed for this order" -e "reserved for another buyer" -e "confirmed order" -e "not available" -e "in stock" || true)
+  | grep -v -e "not allowed for this order" -e "reserved for another buyer" -e "confirmed order" -e "not available" -e "in stock" -e "already voted" -e "vote is not open" || true)
 if [ -n "$unexpected" ]; then
   fail "unexpected errors from workers:"
   echo "$unexpected" | sort | uniq -c | head
@@ -288,7 +381,7 @@ deadlocks=$(cat "$WORK"/*.err 2>/dev/null | grep -ci "deadlock" || true)
 [ "$deadlocks" = "0" ] || fail "$deadlocks deadlock(s) detected"
 
 if [ "$scenario_failures" -eq 0 ]; then
-  echo "All race checks passed ($N items per scenario, 7 scenarios)."
+  echo "All race checks passed ($N items per scenario, 9 scenarios)."
 else
   echo "$scenario_failures race check(s) failed."
   exit 1
