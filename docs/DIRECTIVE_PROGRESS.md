@@ -83,7 +83,7 @@ Migration `0018_locations.sql` (run by hand after `0017`), tests in `supabase/te
 
 ### Known limits (honest)
 - No map picker and no phone GPS: both need a map package or provider key that has not been added. Coordinates exist only if staff set them; the app never guesses a position. "Open in Maps" appears only for an address that has coordinates, and the app cannot set those yet.
-- Migration `0019_province_towns.sql` adds the main town of each of the ten provinces (names only, no coordinates, no neighbourhoods outside Lusaka). Staff add more with `admin_add_location`. These names are from general knowledge; please check them before launch.
+- Only Lusaka places are offered, by decision. `0019` added other provinces' main towns and `0020_lusaka_only.sql` removes the unused ones again (a place already in use is kept). Other provinces, towns and areas come back when you expand (staff use `admin_add_location`). No place data was invented.
 - People can type an address's coordinates by hand (copied from their Maps app). That is the only way to set them; there is still no map picker or GPS.
 - Distance is straight line, not road distance. Delivery fees are still set by the seller; there is no zone pricing (that belongs to Module D).
 
