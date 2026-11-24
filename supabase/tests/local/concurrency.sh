@@ -369,10 +369,51 @@ for i in $(seq 1 "$N"); do
     || fail "s9 proposal $i: status=$st results=$res closed_audit_rows=$closed result_matches_ballots=$match (want approved, 1, 1, 1)"
 done
 
+
+# ---------------------------------------------------------------------------------------------------------------
+# Staff birthdays (migration 0017)
+# ---------------------------------------------------------------------------------------------------------------
+# All nine staff have a long-standing birthday today. Four copies of the daily job start at the same instant.
+scratch <<SQL >/dev/null
+insert into public.staff_birthday_profiles (user_id, birth_month, birth_day, date_changed_at)
+select public.vstaff(n), extract(month from public.bd_today())::integer, extract(day from public.bd_today())::integer, '2000-01-01'
+  from generate_series(1, 9) n;
+SQL
+
+echo "Scenario 10: the daily birthday job runs four times at once"
+race
+for k in 1 2 3 4; do
+  (
+    psql "$SCRATCH_URL" -X -q -v ON_ERROR_STOP=0 >"$WORK/s10_$k.out" 2>"$WORK/s10_$k.err" <<SQL
+select pg_advisory_lock_shared(7777);
+select public.run_staff_birthdays();
+SQL
+  ) &
+done
+wait_for_workers
+events=$(q "select count(*) from public.staff_birthday_events")
+greet=$(q "select count(*) from public.notifications where type='birthday.greeting'")
+cast=$(q "select count(*) from public.notifications where type='birthday.today'")
+logs=$(q "select count(*) from public.staff_birthday_notification_logs")
+dupes=$(q "select count(*) from (select user_id, dedupe_key from public.notifications group by 1, 2 having count(*) > 1) d")
+[ "$events" = "9" ] && [ "$greet" = "9" ] && [ "$cast" = "72" ] && [ "$logs" = "81" ] && [ "$dupes" = "0" ] \
+  || fail "s10: events=$events greetings=$greet notices=$cast log_rows=$logs duplicate_notifications=$dupes (want 9, 9, 72, 81, 0)"
+
+echo "Scenario 11: one person leaves five wishes at the same moment (the limit is three)"
+event=$(q "select id from public.staff_birthday_events where user_id = public.vstaff(4)")
+race
+for k in 1 2 3 4 5; do
+  staff_worker "s11_$k" 3 "select public.send_birthday_message('$event', 'Wish number $k');"
+done
+wait_for_workers
+wishes=$(q "select count(*) from public.staff_birthday_messages where event_id='$event' and sender_id=public.vstaff(3)")
+notes=$(q "select count(*) from public.notifications where user_id=public.vstaff(4) and type='birthday.message'")
+[ "$wishes" = "3" ] && [ "$notes" = "3" ] || fail "s11: stored wishes=$wishes notifications=$notes (want 3 and 3)"
+
 # Every error a worker saw must be one of the polite refusals. A deadlock or a raw database
 # error (such as a duplicate key) means the locking is not doing its job, even if the end state looks right.
 unexpected=$(cat "$WORK"/*.err 2>/dev/null | grep -i "error" \
-  | grep -v -e "not allowed for this order" -e "reserved for another buyer" -e "confirmed order" -e "not available" -e "in stock" -e "already voted" -e "vote is not open" || true)
+  | grep -v -e "not allowed for this order" -e "reserved for another buyer" -e "confirmed order" -e "not available" -e "in stock" -e "already voted" -e "vote is not open" -e "already left" || true)
 if [ -n "$unexpected" ]; then
   fail "unexpected errors from workers:"
   echo "$unexpected" | sort | uniq -c | head
@@ -381,7 +422,7 @@ deadlocks=$(cat "$WORK"/*.err 2>/dev/null | grep -ci "deadlock" || true)
 [ "$deadlocks" = "0" ] || fail "$deadlocks deadlock(s) detected"
 
 if [ "$scenario_failures" -eq 0 ]; then
-  echo "All race checks passed ($N items per scenario, 9 scenarios)."
+  echo "All race checks passed ($N items per scenario, 11 scenarios)."
 else
   echo "$scenario_failures race check(s) failed."
   exit 1
