@@ -149,6 +149,10 @@ export default function AdminHome() {
       <Text style={styles.title}>Staff tools</Text>
       <Text style={styles.text}>Your roles: {roles.join(', ')}</Text>
 
+      <SectionTitle>Web console</SectionTitle>
+      <Text style={styles.text}>On a computer, the staff console shows the same tools with a side menu.</Text>
+      <Button title="Open the staff console" onPress={() => router.push('/console')} />
+
       <SectionTitle>Staff voting</SectionTitle>
       <Button title="Votes and proposals" onPress={() => router.push('/admin/votes')} />
 

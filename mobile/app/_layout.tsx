@@ -57,6 +57,7 @@ function AuthGate() {
       <Stack.Screen name="analytics/index" options={{ title: 'My numbers' }} />
       <Stack.Screen name="analytics/sales" options={{ title: 'Sales report' }} />
       <Stack.Screen name="analytics/listing/[id]" options={{ title: 'Listing numbers' }} />
+      <Stack.Screen name="console" options={{ headerShown: false }} />
       <Stack.Screen name="admin/stats" options={{ title: 'Statistics' }} />
       <Stack.Screen name="finance/index" options={{ title: 'Finance' }} />
       <Stack.Screen name="finance/payment/[id]" options={{ title: 'Payment' }} />
