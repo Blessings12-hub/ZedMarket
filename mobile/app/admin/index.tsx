@@ -152,6 +152,9 @@ export default function AdminHome() {
       <SectionTitle>Staff voting</SectionTitle>
       <Button title="Votes and proposals" onPress={() => router.push('/admin/votes')} />
 
+      <SectionTitle>Staff birthdays</SectionTitle>
+      <Button title="Birthdays and wishes" variant="secondary" onPress={() => router.push('/admin/birthdays')} />
+
       {canModerate(roles) ? (
         <>
           <SectionTitle>Moderation</SectionTitle>
