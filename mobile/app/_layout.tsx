@@ -71,6 +71,10 @@ function AuthGate() {
       <Stack.Screen name="admin/dispute/[id]" options={{ title: 'Dispute' }} />
       <Stack.Screen name="admin/appeals" options={{ title: 'Appeals' }} />
       <Stack.Screen name="admin/flags" options={{ title: 'Risk flags' }} />
+      <Stack.Screen name="admin/votes/index" options={{ title: 'Staff voting' }} />
+      <Stack.Screen name="admin/votes/new" options={{ title: 'New proposal' }} />
+      <Stack.Screen name="admin/votes/history" options={{ title: 'My voting history' }} />
+      <Stack.Screen name="admin/votes/[id]" options={{ title: 'Proposal' }} />
       <Stack.Screen name="admin/team" options={{ title: 'Staff team' }} />
       <Stack.Screen name="admin/audit" options={{ title: 'Audit log' }} />
       <Stack.Screen name="business/[slug]" options={{ title: 'Shop' }} />
