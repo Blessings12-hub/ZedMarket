@@ -52,10 +52,10 @@ export async function listMyAddresses(): Promise<SavedAddress[]> {
 }
 
 export type AddressDraft = {
-  id: string | null; label: string; kind: AddressKind; locationId: number; street: string; landmark: string; directions: string; isDefault: boolean;
+  id: string | null; label: string; kind: AddressKind; locationId: number; street: string; landmark: string; directions: string; isDefault: boolean; latitude: number | null; longitude: number | null;
 };
 
-// Coordinates are not sent: there is no map picker yet, and the app never guesses a position.
+// Coordinates are only sent when the person typed them in. The app never guesses a position.
 export async function saveAddress(d: AddressDraft): Promise<SavedAddress> {
   const { data, error } = await supabase.rpc('save_address', {
     p_id: d.id,
@@ -65,6 +65,8 @@ export async function saveAddress(d: AddressDraft): Promise<SavedAddress> {
     p_street: d.street.trim() || null,
     p_landmark: d.landmark.trim() || null,
     p_directions: d.directions.trim() || null,
+    p_latitude: d.latitude,
+    p_longitude: d.longitude,
     p_default: d.isDefault,
   });
   if (error) throw error;
