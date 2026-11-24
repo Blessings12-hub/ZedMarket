@@ -1,4 +1,4 @@
-export type NotificationCategory = 'orders' | 'messages' | 'alerts' | 'listings' | 'business' | 'account';
+export type NotificationCategory = 'orders' | 'messages' | 'alerts' | 'listings' | 'business' | 'account' | 'staff';
 
 export const CATEGORIES: { key: NotificationCategory; label: string; hint: string }[] = [
   { key: 'orders', label: 'Orders', hint: 'Requests, confirmations, deliveries and disputes' },
@@ -7,6 +7,7 @@ export const CATEGORIES: { key: NotificationCategory; label: string; hint: strin
   { key: 'listings', label: 'Your listings', hint: 'Review results and low stock' },
   { key: 'business', label: 'Business', hint: 'Team invitations and shop updates' },
   { key: 'account', label: 'Account and safety', hint: 'Verification and account changes. Always on.' },
+  { key: 'staff', label: 'Staff', hint: 'Staff birthdays and wishes. Shown only to staff.' },
 ];
 
 export function categoryLabel(key: string): string {
@@ -25,8 +26,10 @@ const ALLOWED_TOP = new Set(['order', 'listing', 'chat', 'dispute', 'seller', 'b
 export function routeForNotification(link: string | null | undefined): string | null {
   if (!link) return null;
   if (!/^\/[A-Za-z0-9/_.-]*$/.test(link) || link.includes('..') || link.includes('//')) return null;
-  // One staff screen is allowed: a single staff vote. It still needs staff access and two-factor to open.
+  // Two staff screens are allowed from a notification: a single staff vote, and a single birthday board. It still needs staff access and two-factor to open.
   if (/^\/admin\/votes\/[A-Za-z0-9-]{8,64}$/.test(link)) return link;
+  // And one staff birthday board. Same rule: the screen itself still needs staff access.
+  if (/^\/admin\/birthdays\/[A-Za-z0-9-]{8,64}$/.test(link)) return link;
   const top = link.split('/')[1];
   if (!top) return null;
   if (top === 'account') return '/(tabs)/account';
