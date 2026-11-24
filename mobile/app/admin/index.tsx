@@ -148,6 +148,9 @@ export default function AdminHome() {
       <Text style={styles.title}>Staff tools</Text>
       <Text style={styles.text}>Your roles: {roles.join(', ')}</Text>
 
+      <SectionTitle>Staff voting</SectionTitle>
+      <Button title="Votes and proposals" onPress={() => router.push('/admin/votes')} />
+
       {canModerate(roles) ? (
         <>
           <SectionTitle>Moderation</SectionTitle>
