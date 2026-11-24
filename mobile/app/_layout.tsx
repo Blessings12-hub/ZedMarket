@@ -79,6 +79,10 @@ function AuthGate() {
       <Stack.Screen name="admin/votes/new" options={{ title: 'New proposal' }} />
       <Stack.Screen name="admin/votes/history" options={{ title: 'My voting history' }} />
       <Stack.Screen name="admin/votes/[id]" options={{ title: 'Proposal' }} />
+      <Stack.Screen name="admin/birthdays/index" options={{ title: 'Staff birthdays' }} />
+      <Stack.Screen name="admin/birthdays/mine" options={{ title: 'My birthday' }} />
+      <Stack.Screen name="admin/birthdays/reports" options={{ title: 'Reported wishes' }} />
+      <Stack.Screen name="admin/birthdays/[id]" options={{ title: 'Birthday board' }} />
       <Stack.Screen name="admin/team" options={{ title: 'Staff team' }} />
       <Stack.Screen name="admin/audit" options={{ title: 'Audit log' }} />
       <Stack.Screen name="business/[slug]" options={{ title: 'Shop' }} />
