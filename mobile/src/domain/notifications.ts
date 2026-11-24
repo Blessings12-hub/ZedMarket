@@ -25,6 +25,8 @@ const ALLOWED_TOP = new Set(['order', 'listing', 'chat', 'dispute', 'seller', 'b
 export function routeForNotification(link: string | null | undefined): string | null {
   if (!link) return null;
   if (!/^\/[A-Za-z0-9/_.-]*$/.test(link) || link.includes('..') || link.includes('//')) return null;
+  // One staff screen is allowed: a single staff vote. It still needs staff access and two-factor to open.
+  if (/^\/admin\/votes\/[A-Za-z0-9-]{8,64}$/.test(link)) return link;
   const top = link.split('/')[1];
   if (!top) return null;
   if (top === 'account') return '/(tabs)/account';

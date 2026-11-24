@@ -15,6 +15,14 @@ test('links open only known screens', () => {
   assert.equal(routeForNotification('/'), null);
 });
 
+test('a staff vote link opens that vote, but no other staff screen is reachable from a notification', () => {
+  assert.equal(routeForNotification('/admin/votes/0b6c1f0e-1111-4222-8333-444455556666'), '/admin/votes/0b6c1f0e-1111-4222-8333-444455556666');
+  assert.equal(routeForNotification('/admin/votes'), null);
+  assert.equal(routeForNotification('/admin/votes/new'), null);
+  assert.equal(routeForNotification('/admin/team'), null);
+  assert.equal(routeForNotification('/admin/votes/../team'), null);
+});
+
 test('unread label caps at 99+', () => {
   assert.equal(unreadLabel(0), '');
   assert.equal(unreadLabel(7), '7');
