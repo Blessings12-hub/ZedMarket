@@ -95,16 +95,17 @@ export default function AccountHub() {
           <Button title="Appeal this decision" variant="secondary" onPress={() => router.push({ pathname: '/appeal', params: { targetType: 'user', targetId: userId } })} />
         </>
       ) : null}
-      {profile.level === 'unverified' ? <Notice>Verified sellers get a badge buyers can see. Open "Seller verification" below to start.</Notice> : null}
 
       <AccountTypeSwitcher businesses={facts.businesses} value={context} onChange={setContext} />
 
       <AccountQuickActions
         actions={[
+          { key: 'cart', label: 'Cart', onPress: () => router.push('/(tabs)/cart') },
           { key: 'orders', label: 'Orders', onPress: () => router.push('/orders'), badge: facts.activeBuying > 0 ? `${facts.activeBuying} open` : undefined },
-          { key: 'listings', label: 'Listings', onPress: () => router.push('/account/listings'), badge: facts.listings.live > 0 ? `${facts.listings.live} live` : undefined },
           { key: 'saved', label: 'Saved', onPress: () => router.push('/saved') },
-          { key: 'messages', label: 'Messages', onPress: () => router.push('/(tabs)/messages') },
+          ...(facts.isSeller
+            ? [{ key: 'listings', label: 'Listings', onPress: () => router.push('/account/listings'), badge: facts.listings.live > 0 ? `${facts.listings.live} live` : undefined }]
+            : []),
         ]}
       />
 
@@ -115,13 +116,6 @@ export default function AccountHub() {
           <AccountSection section={section} onOpen={open} />
         </View>
       ))}
-
-      {facts.businesses.length === 0 ? (
-        <AccountSection
-          section={{ key: 'add-business', title: 'Business centre', items: [{ key: 'add', title: 'Add a business', subtitle: 'Register a business, or ask an owner to invite your email', href: { pathname: '/business/manage' } }] }}
-          onOpen={open}
-        />
-      ) : null}
 
       <Button
         title="Sign out"

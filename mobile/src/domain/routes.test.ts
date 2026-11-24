@@ -6,6 +6,7 @@ import { isPublicRoute } from './routes';
 test('guests can browse, open listings and open seller pages', () => {
   assert.equal(isPublicRoute(['(tabs)']), true);
   assert.equal(isPublicRoute(['(tabs)', 'index']), true);
+  assert.equal(isPublicRoute(['(tabs)', 'cart']), true);
   assert.equal(isPublicRoute(['listing', '[id]']), true);
   assert.equal(isPublicRoute(['seller', '[id]']), true);
   assert.equal(isPublicRoute(['business', '[slug]']), true);
@@ -16,6 +17,7 @@ test('guests can browse, open listings and open seller pages', () => {
 test('everything that needs an account stays private', () => {
   for (const segments of [
     ['(tabs)', 'sell'],
+    ['(tabs)', 'orders'],
     ['(tabs)', 'messages'],
     ['(tabs)', 'account'],
     ['chat', '[id]'],

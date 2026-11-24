@@ -10,6 +10,9 @@ export type HubBusiness = { id: string; name: string; slug: string; role: Busine
 
 export type HubFacts = {
   isStaff: boolean;
+  // True once the person has started selling (verified identity, or listings they already posted). Buyers are never
+  // shown selling tools. The database still decides what a seller may do.
+  isSeller: boolean;
   paymentsOn: boolean;
   unreadNotifications: number;
   unreadAlerts: number;
@@ -76,6 +79,19 @@ export function businessSection(f: HubFacts): HubSection | null {
   return { key: 'business', title: `Business centre: ${b.name}`, items };
 }
 
+// Selling is opt-in. A buyer sees an invitation, not the tools. Business registration is separate from selling as a person.
+export function becomeSellerSection(f: HubFacts): HubSection | null {
+  const items: HubItem[] = [];
+  if (!f.isSeller) {
+    items.push({ key: 'become-seller', title: 'Become an individual seller', subtitle: 'For people selling their own products. Verify your identity to start.', href: at('/verify'), badge: 'Application required' });
+  }
+  if (f.businesses.length === 0) {
+    items.push({ key: 'register-business', title: 'Register a business', subtitle: 'For shops, companies and organisations', href: at('/business/manage'), badge: 'Verification required' });
+  }
+  if (items.length === 0) return null;
+  return { key: 'become-seller', title: 'Become a seller', items };
+}
+
 export function communicationSection(f: HubFacts): HubSection {
   return {
     key: 'communication',
@@ -108,7 +124,15 @@ export function staffSection(f: HubFacts): HubSection | null {
 }
 
 export function buildHub(f: HubFacts): HubSection[] {
-  return [purchasesSection(f), sellingSection(f), businessSection(f), communicationSection(f), settingsSection(), staffSection(f)].filter(
+  return [
+    purchasesSection(f),
+    f.isSeller ? sellingSection(f) : null,
+    businessSection(f),
+    becomeSellerSection(f),
+    communicationSection(f),
+    settingsSection(),
+    staffSection(f),
+  ].filter(
     (s): s is HubSection => s !== null,
   );
 }
