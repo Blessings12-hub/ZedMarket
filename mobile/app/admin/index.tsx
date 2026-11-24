@@ -9,6 +9,7 @@ import {
   canSeeFinance,
   canWorkTickets,
   canManageTeam,
+  canReadTrust,
   canModerate,
   canSeeTrustAudit,
   canSupport,
@@ -201,6 +202,13 @@ export default function AdminHome() {
         <>
           <SectionTitle>Finance</SectionTitle>
           <Button title="Payments and refunds" variant="secondary" onPress={() => router.push('/finance')} />
+        </>
+      ) : null}
+
+      {canSeeFinance(roles) || canReadTrust(roles) || canManageTeam(roles) ? (
+        <>
+          <SectionTitle>Statistics</SectionTitle>
+          <Button title="Platform statistics" variant="secondary" onPress={() => router.push('/admin/stats')} />
         </>
       ) : null}
     </ScrollView>
