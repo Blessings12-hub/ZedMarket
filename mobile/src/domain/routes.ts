@@ -12,6 +12,7 @@ export function isPublicRoute(segments: readonly string[]): boolean {
   if (PUBLIC_TOP_LEVEL.has(top)) return true;
   // A shop's public page is open; the manage screens under /business/manage need sign-in.
   if (top === 'business') return segments.length === 2 && segments[1] === '[slug]';
-  if (top === '(tabs)') return segments.length === 1 || segments[1] === 'index';
+  // The cart is kept on the phone, so a visitor can use it; checkout itself needs an account.
+  if (top === '(tabs)') return segments.length === 1 || segments[1] === 'index' || segments[1] === 'cart';
   return false;
 }

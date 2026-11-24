@@ -42,6 +42,7 @@ export async function fetchHub(userId: string): Promise<{ profile: HubProfile; f
     profile: { displayName: r.display_name, bio: r.bio ?? '', avatarPath: r.avatar_path, level: r.verification_level, state: r.account_state, createdAt: r.created_at },
     facts: {
       isStaff: roles.length > 0,
+      isSeller: r.verification_level === 'identity_verified' || listings.length > 0,
       paymentsOn: payOn,
       unreadNotifications: unreadN,
       unreadAlerts: unreadA,

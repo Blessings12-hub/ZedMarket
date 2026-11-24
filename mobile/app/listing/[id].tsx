@@ -7,6 +7,8 @@ import { ListingRail } from '../../src/components/ListingRail';
 import { Button, Notice, SectionTitle, VerifiedBadge } from '../../src/components/ui';
 import { deliverySummary } from '../../src/domain/locations';
 import { fetchListingDeliveryInfo } from '../../src/features/locations/api';
+import { addItem, useCart } from '../../src/features/cart/store';
+import { inCart } from '../../src/domain/cart';
 import { startConversation } from '../../src/features/chat/api';
 import { fetchMyRoles } from '../../src/features/admin/api';
 import {
@@ -34,6 +36,7 @@ const PHOTO_WIDTH = Dimensions.get('window').width;
 export default function ListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const cartItems = useCart();
   const { userId, session } = useAuth();
   const signedIn = !!session;
 
@@ -150,6 +153,11 @@ export default function ListingScreen() {
     }
   }
 
+  function addToCartPressed() {
+    if (!listing) return;
+    void addItem({ listingId: listing.id, title: listing.title, price: listing.price, sellerName: listing.sellerName, imagePath: listing.imagePaths[0] ?? listing.imagePath, addedAt: new Date().toISOString() });
+  }
+
   function askToBuy() {
     if (needAccount()) return;
     router.push(`/checkout/${listing!.id}`);
@@ -246,6 +254,11 @@ export default function ListingScreen() {
           <View style={{ gap: spacing.sm }}>
             {reserved ? <Notice tone="warning">Reserved for another buyer right now. It may come back if that order falls through.</Notice> : null}
             <Button title="Request to buy" onPress={askToBuy} disabled={!available || reserved || busy} />
+            {inCart(cartItems, listing.id) ? (
+              <Button title="In your cart - view cart" variant="secondary" onPress={() => router.push('/(tabs)/cart')} />
+            ) : (
+              <Button title="Add to cart" variant="secondary" onPress={addToCartPressed} disabled={!available || reserved || busy} />
+            )}
             <Button title="Message seller" variant="secondary" onPress={messageSeller} disabled={!available || busy} />
             <Button title={saved ? 'Remove from saved' : 'Save for later'} variant="secondary" onPress={toggleSaved} />
             <Button title="Share" variant="secondary" onPress={shareListing} />
