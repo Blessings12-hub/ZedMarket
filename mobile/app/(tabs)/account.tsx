@@ -1,57 +1,42 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
-import { Button, Notice, SectionTitle, VerifiedBadge } from '../../src/components/ui';
-import { formatKwacha } from '../../src/domain/money';
-import { fetchMyRoles } from '../../src/features/admin/api';
-import { countUnreadNotifications, watchNotifications } from '../../src/features/notifications/api';
+import { Button, Notice } from '../../src/components/ui';
+import { sellerLink, sellerShareMessage, webBase } from '../../src/domain/share';
+import { fetchHub, type HubProfile } from '../../src/features/account-hub/api';
+import {
+  AccountHeader,
+  AccountQuickActions,
+  AccountSection,
+  AccountTypeSwitcher,
+  BusinessSummary,
+  SellerSummary,
+} from '../../src/features/account-hub/components';
+import { buildHub, validContext, type HubFacts, type HubItem } from '../../src/features/account-hub/hub';
+import { watchNotifications, countUnreadNotifications } from '../../src/features/notifications/api';
 import { disablePushForThisPhone } from '../../src/features/notifications/push';
-import { unreadLabel } from '../../src/domain/notifications';
-import { countUnreadAlerts, fetchMyListings } from '../../src/features/listings/api';
-import type { MyListing, VerificationLevel } from '../../src/features/listings/types';
 import { friendlyError } from '../../src/lib/errors';
 import { supabase } from '../../src/lib/supabase';
-import { colors, radius, spacing } from '../../src/theme';
+import { colors, spacing } from '../../src/theme';
 
-type Profile = { display_name: string; verification_level: VerificationLevel; account_state: 'active' | 'restricted' | 'suspended' };
-
-function listingState(l: MyListing): string {
-  if (l.status === 'draft') return 'Draft';
-  if (l.status === 'sold') return 'Sold';
-  if (l.status === 'unavailable') return 'Paused';
-  if (l.moderationStatus === 'pending') return 'Waiting for review';
-  if (l.moderationStatus === 'rejected') return 'Not approved';
-  return 'Live';
-}
-
-export default function AccountScreen() {
+// The Profile tab. It organises screens that already exist; each row opens the existing feature.
+export default function AccountHub() {
   const router = useRouter();
   const { userId, session } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [listings, setListings] = useState<MyListing[]>([]);
-  const [isStaff, setIsStaff] = useState(false);
-  const [unreadAlerts, setUnreadAlerts] = useState(0);
-  const [unreadNotes, setUnreadNotes] = useState(0);
+  const [profile, setProfile] = useState<HubProfile | null>(null);
+  const [facts, setFacts] = useState<Omit<HubFacts, 'context'> | null>(null);
+  const [context, setContext] = useState<string>('personal');
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     if (!userId) return;
     try {
-      const [p, mine, roles, unread, unreadN] = await Promise.all([
-        supabase.from('profiles').select('display_name, verification_level, account_state').eq('id', userId).single(),
-        fetchMyListings(userId),
-        fetchMyRoles(userId).catch(() => []),
-        countUnreadAlerts().catch(() => 0),
-        countUnreadNotifications().catch(() => 0),
-      ]);
-      if (p.error) throw p.error;
-      setProfile(p.data as Profile);
-      setListings(mine);
-      setIsStaff(roles.length > 0);
-      setUnreadAlerts(unread);
-      setUnreadNotes(unreadN);
+      const hub = await fetchHub(userId);
+      setProfile(hub.profile);
+      setFacts(hub.facts);
+      setContext((c) => validContext(c, hub.facts.businesses));
       setError('');
     } catch (e) {
       setError(friendlyError(e));
@@ -60,102 +45,98 @@ export default function AccountScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load();
       if (!userId) return undefined;
-      return watchNotifications(userId, () => void countUnreadNotifications().then(setUnreadNotes).catch(() => undefined));
+      return watchNotifications(userId, () =>
+        void countUnreadNotifications().then((n) => setFacts((f) => (f ? { ...f, unreadNotifications: n } : f))).catch(() => undefined),
+      );
     }, [load, userId]),
   );
+
+  const open = (item: HubItem) => router.push(item.href as never);
+
+  async function shareProfile() {
+    if (!userId || !profile) return;
+    const link = sellerLink(webBase(process.env.EXPO_PUBLIC_WEB_URL), userId);
+    try {
+      await Share.share({ message: sellerShareMessage({ name: profile.displayName, link }) });
+    } catch {
+      /* closing the share sheet is not an error */
+    }
+  }
+
+  if (!profile || !facts) {
+    return (
+      <View style={styles.center}>
+        {error ? <Notice tone="error">{error}</Notice> : <ActivityIndicator color={colors.primary} />}
+      </View>
+    );
+  }
+
+  const sections = buildHub({ ...facts, context });
+  const selected = facts.businesses.find((b) => b.id === context);
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {error ? <Notice tone="error">{error}</Notice> : null}
 
-      <View style={styles.card}>
-        <Text style={styles.name}>{profile?.display_name ?? ''}</Text>
-        <Text style={styles.email}>{session?.user.email}</Text>
-        {profile ? <VerifiedBadge level={profile.verification_level} /> : null}
-        {profile?.verification_level === 'unverified' ? (
-          <Text style={styles.hint}>Verified sellers get a badge buyers can see.</Text>
-        ) : null}
-        {profile && profile.account_state !== 'active' ? (
-          <>
-            <Notice tone="warning">
-              {profile.account_state === 'suspended' ? 'Your account is suspended.' : 'Your account is restricted, so you cannot post new listings.'}
-            </Notice>
-            <Button title="Appeal this decision" variant="secondary" onPress={() => router.push({ pathname: '/appeal', params: { targetType: 'user', targetId: userId } })} />
-          </>
-        ) : null}
-      </View>
+      <AccountHeader
+        profile={profile}
+        email={session?.user.email}
+        emailConfirmedAt={session?.user.email_confirmed_at}
+        onEdit={() => router.push('/profile/edit')}
+        onShare={shareProfile}
+      />
+      {profile.state !== 'active' ? (
+        <>
+          <Notice tone="warning">
+            {profile.state === 'suspended' ? 'Your account is suspended.' : 'Your account is restricted, so you cannot post new listings.'}
+          </Notice>
+          <Button title="Appeal this decision" variant="secondary" onPress={() => router.push({ pathname: '/appeal', params: { targetType: 'user', targetId: userId } })} />
+        </>
+      ) : null}
+      {profile.level === 'unverified' ? <Notice>Verified sellers get a badge buyers can see. Open "Seller verification" below to start.</Notice> : null}
+
+      <AccountTypeSwitcher businesses={facts.businesses} value={context} onChange={setContext} />
+
+      <AccountQuickActions
+        actions={[
+          { key: 'orders', label: 'Orders', onPress: () => router.push('/orders'), badge: facts.activeBuying > 0 ? `${facts.activeBuying} open` : undefined },
+          { key: 'listings', label: 'Listings', onPress: () => router.push('/account/listings'), badge: facts.listings.live > 0 ? `${facts.listings.live} live` : undefined },
+          { key: 'saved', label: 'Saved', onPress: () => router.push('/saved') },
+          { key: 'messages', label: 'Messages', onPress: () => router.push('/(tabs)/messages') },
+        ]}
+      />
+
+      {sections.map((section) => (
+        <View key={section.key} style={{ gap: spacing.sm }}>
+          {section.key === 'selling' ? <SellerSummary {...facts.listings} /> : null}
+          {section.key === 'business' && selected ? <BusinessSummary business={selected} /> : null}
+          <AccountSection section={section} onOpen={open} />
+        </View>
+      ))}
+
+      {facts.businesses.length === 0 ? (
+        <AccountSection
+          section={{ key: 'add-business', title: 'Business centre', items: [{ key: 'add', title: 'Add a business', subtitle: 'Register a business, or ask an owner to invite your email', href: { pathname: '/business/manage' } }] }}
+          onOpen={open}
+        />
+      ) : null}
 
       <Button
-        title={unreadNotes > 0 ? `Notifications (${unreadLabel(unreadNotes)} new)` : 'Notifications'}
-        variant="secondary"
-        onPress={() => router.push('/notifications')}
+        title="Sign out"
+        variant="danger"
+        onPress={async () => {
+          await disablePushForThisPhone();
+          await supabase.auth.signOut();
+        }}
       />
-      <Button title="My selling numbers" variant="secondary" onPress={() => router.push('/analytics')} />
-      <Button title="Help and support" variant="secondary" onPress={() => router.push('/support')} />
-      <Button title="Payments" variant="secondary" onPress={() => router.push('/payments')} />
-      <Button title="Your orders" variant="secondary" onPress={() => router.push('/orders')} />
-      <Button title="Get verified" variant="secondary" onPress={() => router.push('/verify')} />
-      <Button title="Business tools" variant="secondary" onPress={() => router.push('/business/manage')} />
-      <Button title="Saved items" variant="secondary" onPress={() => router.push('/saved')} />
-      <Button
-        title={unreadAlerts > 0 ? `Saved searches and alerts (${unreadAlerts} new)` : 'Saved searches and alerts'}
-        variant="secondary"
-        onPress={() => router.push('/alerts')}
-      />
-      {isStaff ? <Button title="Staff tools" variant="secondary" onPress={() => router.push('/admin')} /> : null}
-
-      <SectionTitle>My listings</SectionTitle>
-      {listings.length === 0 ? (
-        <Text style={styles.hint}>You have not posted anything yet.</Text>
-      ) : (
-        listings.map((l) => (
-          <Pressable key={l.id} accessibilityRole="button" style={styles.listing} onPress={() => router.push(`/listing/${l.id}`)}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.listingTitle} numberOfLines={1}>
-                {l.title}
-              </Text>
-              <Text style={styles.hint}>{formatKwacha(l.price)}</Text>
-              {l.moderationStatus === 'rejected' && l.moderationNote ? <Text style={styles.reason}>{l.moderationNote}</Text> : null}
-              {l.moderationStatus === 'rejected' ? (
-                <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/appeal', params: { targetType: 'listing', targetId: l.id } })}>
-                  <Text style={styles.appeal}>Appeal this decision</Text>
-                </Pressable>
-              ) : null}
-            </View>
-            <Text style={styles.state}>{listingState(l)}</Text>
-          </Pressable>
-        ))
-      )}
-
-      <Button title="Sign out" variant="danger" onPress={async () => {
-        await disablePushForThisPhone();
-        await supabase.auth.signOut();
-      }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.md },
-  card: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.xs },
-  name: { fontSize: 20, fontWeight: '700', color: colors.text },
-  email: { fontSize: 14, color: colors.muted },
-  hint: { fontSize: 14, color: colors.muted, lineHeight: 20 },
-  listing: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-  },
-  listingTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
-  state: { fontSize: 13, fontWeight: '600', color: colors.primary },
-  reason: { fontSize: 13, color: colors.danger, marginTop: 2 },
-  appeal: { fontSize: 13, color: colors.primary, textDecorationLine: 'underline', marginTop: 4 },
+  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
+  center: { flex: 1, justifyContent: 'center', padding: spacing.lg, backgroundColor: colors.background },
 });

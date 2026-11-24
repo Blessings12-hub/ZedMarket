@@ -46,6 +46,11 @@ function AuthGate() {
       <Stack.Screen name="alerts" options={{ title: 'Saved searches and alerts' }} />
       <Stack.Screen name="pay/[orderId]" options={{ title: 'Pay' }} />
       <Stack.Screen name="payments" options={{ title: 'Payments' }} />
+      <Stack.Screen name="profile/edit" options={{ title: 'Edit profile' }} />
+      <Stack.Screen name="settings/security" options={{ title: 'Security and login' }} />
+      <Stack.Screen name="account/listings" options={{ title: 'My products' }} />
+      <Stack.Screen name="account/reviews" options={{ title: 'My reviews' }} />
+      <Stack.Screen name="account/cases" options={{ title: 'Disputes, appeals and reports' }} />
       <Stack.Screen name="analytics/index" options={{ title: 'My numbers' }} />
       <Stack.Screen name="analytics/sales" options={{ title: 'Sales report' }} />
       <Stack.Screen name="analytics/listing/[id]" options={{ title: 'Listing numbers' }} />
