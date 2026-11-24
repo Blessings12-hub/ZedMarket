@@ -91,3 +91,10 @@ test('small helpers', () => {
   assert.equal(passwordProblem('longenough', 'different1'), 'The two passwords do not match.');
   assert.equal(passwordProblem('longenough', 'longenough'), null);
 });
+
+test('saved addresses and coverage places are listed, and only the seller item is under selling', () => {
+  const hub = buildHub(base);
+  const where = (key: string) => hub.find((s) => s.items.some((i) => i.key === key))?.key;
+  assert.equal(where('addresses'), 'settings');
+  assert.equal(where('coverage-areas'), 'selling');
+});

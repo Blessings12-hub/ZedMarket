@@ -47,6 +47,7 @@ export function sellingSection(f: HubFacts): HubSection {
       { key: 'seller-dashboard', title: 'Seller dashboard', subtitle: 'Views, sales and replies', href: at('/analytics') },
       { key: 'my-products', title: 'My products', subtitle, href: at('/account/listings') },
       { key: 'post', title: 'Post a listing', subtitle: 'Goes to review before it is shown', href: at('/(tabs)/sell') },
+      { key: 'coverage-areas', title: 'Where I deliver', subtitle: 'Limit delivery to certain places', href: at('/delivery/areas') },
       { key: 'selling-orders', title: 'Selling orders', subtitle: 'Requests from buyers', href: at('/orders'), badge: count(f.openRequestsToMe, 'to answer') },
       { key: 'enquiries', title: 'Customer enquiries', subtitle: 'Chats with interested buyers', href: at('/(tabs)/messages') },
       { key: 'seller-verification', title: 'Seller verification', subtitle: 'Status and what is needed', href: at('/verify') },
@@ -94,6 +95,7 @@ export function settingsSection(): HubSection {
     title: 'Account settings',
     items: [
       { key: 'personal', title: 'Personal information', subtitle: 'Name and about you', href: at('/profile/edit') },
+      { key: 'addresses', title: 'Saved addresses', subtitle: 'Delivery and pickup places', href: at('/addresses') },
       { key: 'security', title: 'Security and login', subtitle: 'Password, email and other devices', href: at('/settings/security') },
       { key: 'notification-settings', title: 'Notification preferences', subtitle: 'Choose what you are told about', href: at('/notification-settings') },
     ],

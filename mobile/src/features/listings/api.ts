@@ -146,7 +146,7 @@ export function fetchListings(
 export const fetchFeatured = () => rpcListings('featured_listings_now', { p_limit: 10 });
 export const fetchTrending = () => rpcListings('trending_listings', { p_days: 7, p_limit: 10 });
 export const fetchNearby = (locationId: number) =>
-  rpcListings('nearby_listings', { p_location_id: locationId, p_limit: 10, p_offset: 0 });
+  rpcListings('nearby_listings_ranked', { p_location_id: locationId, p_scope: 'district', p_limit: 10, p_offset: 0 });
 export const fetchSimilar = (listingId: string) => rpcListings('similar_listings', { p_listing_id: listingId, p_limit: 10 });
 export const fetchRecentlyViewed = () => rpcListings('recently_viewed', { p_limit: 20 });
 export const fetchRecommended = () => rpcListings('recommended_listings', { p_limit: 10 });

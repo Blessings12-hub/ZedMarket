@@ -2,7 +2,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { PlacePicker } from '../../src/components/PlacePicker';
 import { Button, Chip, Field, Notice, SectionTitle } from '../../src/components/ui';
+import { coverageMessage, type Coverage } from '../../src/domain/locations';
+import { checkDelivery, listMyAddresses, type SavedAddress } from '../../src/features/locations/api';
 import { formatKwacha } from '../../src/domain/money';
 import { validateCheckout, type Fulfilment } from '../../src/domain/orders';
 import { fetchListing } from '../../src/features/listings/api';
@@ -22,6 +25,10 @@ export default function Checkout() {
   const [fulfilment, setFulfilment] = useState<Fulfilment>('collection');
   const [address, setAddress] = useState('');
   const [note, setNote] = useState('');
+  const [saved, setSaved] = useState<SavedAddress[]>([]);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [placeId, setPlaceId] = useState<number | null>(null);
+  const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -41,17 +48,37 @@ export default function Checkout() {
     })();
   }, [listingId]);
 
+  // Saved addresses are only available when signed in (checkout needs it anyway).
+  useEffect(() => {
+    listMyAddresses().then((r) => setSaved(r.filter((a) => a.kind !== 'pickup'))).catch(() => setSaved([]));
+  }, []);
+
+  const chosenSaved = saved.find((a) => a.id === savedId) ?? null;
+  const locationForCheck = chosenSaved ? chosenSaved.locationId : placeId;
+
+  // Ask the database whether this seller delivers there, so the buyer knows before sending.
+  useEffect(() => {
+    setCoverage(null);
+    if (fulfilment !== 'delivery' || !listingId) return;
+    checkDelivery(listingId, locationForCheck).then(setCoverage).catch(() => setCoverage(null));
+  }, [fulfilment, listingId, locationForCheck]);
+
   async function submit() {
     if (!listing) return;
-    const problem = validateCheckout({ fulfilment, address, note });
+    const problem = validateCheckout({ fulfilment, address: chosenSaved ? 'saved address' : address, note });
+    const blocked = fulfilment === 'delivery' && coverage !== null && !coverageMessage(coverage).ok;
     if (problem) {
       setError(problem);
+      return;
+    }
+    if (blocked && coverage) {
+      setError(coverageMessage(coverage).text);
       return;
     }
     setBusy(true);
     setError('');
     try {
-      const order = await requestToBuy(listing.id, { fulfilment, address, note });
+      const order = await requestToBuy(listing.id, { fulfilment, address, note, locationId: locationForCheck, savedAddressId: chosenSaved?.id ?? null });
       router.replace(`/order/${order.id}`);
     } catch (e) {
       setError(friendlyError(e));
@@ -95,14 +122,30 @@ export default function Checkout() {
 
       {fulfilment === 'delivery' ? (
         <>
-          <Field
-            label="Delivery address or landmark"
+          {saved.length > 0 ? (
+            <>
+              <SectionTitle>Use a saved address</SectionTitle>
+              <View style={styles.row}>
+                {saved.map((a) => (
+                  <Chip key={a.id} label={a.label} selected={savedId === a.id} onPress={() => setSavedId(savedId === a.id ? null : a.id)} />
+                ))}
+              </View>
+            </>
+          ) : null}
+          {chosenSaved ? null : (
+            <>
+              <PlacePicker value={placeId} onChange={(i) => setPlaceId(i)} label="Your town or area" />
+              <Field
+                label="Delivery address or landmark"
             value={address}
             onChangeText={setAddress}
             placeholder="For example: near the blue gate, Kabulonga"
             multiline
             maxLength={300}
-          />
+              />
+            </>
+          )}
+          {coverage ? <Notice tone={coverageMessage(coverage).ok ? 'info' : 'warning'}>{coverageMessage(coverage).text}</Notice> : null}
           <Notice>The seller tells you the delivery fee when they confirm. You can cancel before the item is handed over.</Notice>
         </>
       ) : (
