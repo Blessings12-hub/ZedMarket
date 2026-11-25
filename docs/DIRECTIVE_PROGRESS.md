@@ -16,7 +16,7 @@ Status words used here: **Done** means built and tested through the whole user j
 | I. Analytics | Built, partly tested, except delivery performance (needs Module D). See Module I below. |
 | J. Monetisation | Not started |
 | K. Location management | Not started |
-| L. Web administration dashboard | Started: console shell only (see Module L below) |
+| L. Web administration dashboard | Not started (the first console shell was removed; see Module L below) |
 
 ## Module A: advanced marketplace
 
@@ -67,19 +67,11 @@ Known limits:
 - Applications are listed by name search only (no date or reviewer filter yet).
 - The second-person approval rule in the directive (Module L) is not applied to verification decisions yet.
 
-## Module L: web administration console (started)
+## Module L: web administration console (first slice removed)
 
-Decision: built inside the existing app (Expo web), not as a separate site.
+The `/console` shell (side menu, re-exported staff screens) was removed at the owner's request. The Staff tools home (`/admin`) is now the one place staff start from: rows grouped into Moderation, People and support, Finance, Platform and Our team, each with a one-line description, shown by role. The rules are in `mobile/src/domain/staffMenu.ts` and unit tested. The database still enforces every action.
 
-### Built (app only, no database change, never run in a browser)
-- `/console`: a staff console with a side menu on wide screens (900 px and up) and a menu button on narrow ones. Items show by role (moderation, people, money, platform, staff). Anyone without a staff role and finished two-factor sign-in is sent to the staff sign-in page. The database still enforces every action.
-- It shows the existing staff screens inside the menu: listing review, appeals, risk flags, reports, verification requests, disputes, help desk, user and trust management, payments and refunds, statistics, staff team, audit log, voting and birthdays.
-- The menu rules are unit tested (`src/domain/console.test.ts`). A button on the phone's Staff tools opens the console.
-
-### Known limits
-- Some buttons inside the old staff screens still open the phone version of a detail page, which leaves the console menu; the back button returns.
-- Not yet built from the directive: user actions beyond the trust tools, order oversight, delivery oversight, fraud investigations as their own section, platform configuration (settings editor), second-person approval for designated high-impact actions, and a staff-management screen beyond the existing team page.
-- The layout was typechecked only. It has not been opened in a desktop browser.
+Not built from the directive: user actions beyond the trust tools, order oversight, delivery oversight, fraud investigations as their own section, platform configuration (settings editor), second-person approval for designated high-impact actions, and a staff-management screen beyond the existing team page.
 
 ## Module K: location management
 
