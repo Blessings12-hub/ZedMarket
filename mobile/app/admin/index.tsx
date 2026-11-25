@@ -1,23 +1,11 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
-import {
-  canHandleReports,
-  canSeeFinance,
-  canWorkTickets,
-  canManageTeam,
-  canReadTrust,
-  canModerate,
-  canSeeTrustAudit,
-  canSupport,
-  cleanTotpCode,
-  staffAccessStep,
-  type AdminRole,
-  type StaffStep,
-} from '../../src/domain/admin';
+import { ROLE_LABELS, cleanTotpCode, staffAccessStep, type AdminRole, type StaffStep } from '../../src/domain/admin';
+import { staffMenu } from '../../src/domain/staffMenu';
 import { confirmCode, fetchAssurance, fetchMyRoles, startEnrolment, verifiedFactorId } from '../../src/features/admin/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, spacing } from '../../src/theme';
@@ -146,78 +134,38 @@ export default function AdminHome() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {error ? <Notice tone="error">{error}</Notice> : null}
-      <Text style={styles.title}>Staff tools</Text>
-      <Text style={styles.text}>Your roles: {roles.join(', ')}</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Staff tools</Text>
+        <View style={styles.roleRow}>
+          {roles.map((r) => (
+            <View key={r} style={styles.rolePill}>
+              <Text style={styles.rolePillText}>{ROLE_LABELS[r]}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
 
-      <SectionTitle>Web console</SectionTitle>
-      <Text style={styles.text}>On a computer, the staff console shows the same tools with a side menu.</Text>
-      <Button title="Open the staff console" onPress={() => router.push('/console')} />
-
-      <SectionTitle>Staff voting</SectionTitle>
-      <Button title="Votes and proposals" onPress={() => router.push('/admin/votes')} />
-
-      <SectionTitle>Staff birthdays</SectionTitle>
-      <Button title="Birthdays and wishes" variant="secondary" onPress={() => router.push('/admin/birthdays')} />
-
-      {canModerate(roles) ? (
-        <>
-          <SectionTitle>Moderation</SectionTitle>
-          <Button title="Listings waiting for review" onPress={() => router.push('/admin/listings')} />
-          <Button title="Appeals" variant="secondary" onPress={() => router.push('/admin/appeals')} />
-          <Button title="Risk flags" variant="secondary" onPress={() => router.push('/admin/flags')} />
-        </>
-      ) : null}
-
-      {canHandleReports(roles) ? (
-        <>
-          <SectionTitle>Reports</SectionTitle>
-          <Button title="Open reports" onPress={() => router.push('/admin/reports')} />
-        </>
-      ) : null}
-
-      {canSupport(roles) ? (
-        <>
-          <SectionTitle>Support</SectionTitle>
-          <Button title="Verification requests" onPress={() => router.push('/admin/verifications')} />
-          <Button title="Disputes" variant="secondary" onPress={() => router.push('/admin/disputes')} />
-        </>
-      ) : null}
-
-      {canSeeTrustAudit(roles) ? (
-        <>
-          <SectionTitle>Users and trust</SectionTitle>
-          <Button title="User & Trust Management" variant="secondary" onPress={() => router.push('/trust')} />
-        </>
-      ) : null}
-
-      {canManageTeam(roles) ? (
-        <>
-          <SectionTitle>Administration</SectionTitle>
-          <Button title="Staff team" onPress={() => router.push('/admin/team')} />
-          <Button title="Audit log" variant="secondary" onPress={() => router.push('/admin/audit')} />
-        </>
-      ) : null}
-
-      {canWorkTickets(roles) ? (
-        <>
-          <SectionTitle>Customer support</SectionTitle>
-          <Button title="Help desk" onPress={() => router.push('/helpdesk')} />
-        </>
-      ) : null}
-
-      {canSeeFinance(roles) ? (
-        <>
-          <SectionTitle>Finance</SectionTitle>
-          <Button title="Payments and refunds" variant="secondary" onPress={() => router.push('/finance')} />
-        </>
-      ) : null}
-
-      {canSeeFinance(roles) || canReadTrust(roles) || canManageTeam(roles) ? (
-        <>
-          <SectionTitle>Statistics</SectionTitle>
-          <Button title="Platform statistics" variant="secondary" onPress={() => router.push('/admin/stats')} />
-        </>
-      ) : null}
+      {staffMenu(roles).map((section) => (
+        <View key={section.title} style={styles.section}>
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+          <View style={styles.group}>
+            {section.items.map((item, i) => (
+              <Pressable
+                key={item.key}
+                accessibilityRole="button"
+                onPress={() => router.push(item.href as never)}
+                style={({ pressed }) => [styles.row, i > 0 && styles.rowDivider, pressed && { backgroundColor: colors.primarySoft }]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowTitle}>{item.title}</Text>
+                  <Text style={styles.rowNote}>{item.note}</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ))}
     </ScrollView>
   );
 }
@@ -228,6 +176,18 @@ const styles = StyleSheet.create({
   center: { flex: 1, padding: spacing.xl, gap: spacing.md, justifyContent: 'center', backgroundColor: colors.background },
   title: { fontSize: 22, fontWeight: '700', color: colors.text },
   text: { fontSize: 15, lineHeight: 22, color: colors.muted },
+  header: { gap: spacing.sm },
+  roleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  rolePill: { backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
+  rolePillText: { fontSize: 13, fontWeight: '700', color: colors.primaryDark },
+  section: { gap: spacing.sm },
+  sectionTitle: { fontSize: 13, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase', color: colors.muted },
+  group: { backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: spacing.md, gap: spacing.sm },
+  rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+  rowTitle: { fontSize: 16, fontWeight: '600', color: colors.text },
+  rowNote: { fontSize: 13, lineHeight: 18, color: colors.muted, marginTop: 2 },
+  chevron: { fontSize: 24, color: colors.muted },
   secretBox: { gap: spacing.sm, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   secret: { fontSize: 18, fontWeight: '700', letterSpacing: 1, color: colors.text },
 });
