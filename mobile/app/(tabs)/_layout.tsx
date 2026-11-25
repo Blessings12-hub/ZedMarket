@@ -1,8 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { Platform, StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { AppState, Platform, StyleSheet } from 'react-native';
 
+import { useAuth } from '../../src/auth/AuthProvider';
+import { showOrdersTab } from '../../src/domain/sellerAccess';
 import { useCart } from '../../src/features/cart/store';
+import { clearSellingAccess, refreshSellingAccess, useSellingAccess } from '../../src/features/seller/status';
 import { colors } from '../../src/theme';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -13,10 +17,29 @@ function icon(active: IconName, idle: IconName) {
   );
 }
 
-// Bottom navigation: Home, Messages, Cart, Orders, Account. Selling tools are not a tab: they live in the Account
-// Hub and only appear once a person has started selling. The "sell" screen stays reachable from the hub.
+// Bottom navigation. A new account is a buyer account: Home, Messages, Cart and Account. The Orders tab mixes in selling
+// requests, so it only appears once the verification team has approved the person as a seller; buyers open their
+// purchases from the Account Hub. Other selling tools are not tabs: they live in the Account Hub and appear only for
+// approved sellers. The "sell" and "orders" screens stay reachable by link, so the hub can still open them.
 export default function TabsLayout() {
   const cartCount = useCart().length;
+  const { userId } = useAuth();
+  const { access } = useSellingAccess();
+
+  // Keep the bar in step with the person's real status: on sign-in, and whenever the app comes back to the front
+  // (for example after the team approves an application).
+  useEffect(() => {
+    if (!userId) {
+      clearSellingAccess();
+      return undefined;
+    }
+    void refreshSellingAccess(userId);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshSellingAccess(userId);
+    });
+    return () => sub.remove();
+  }, [userId]);
+
   return (
     <Tabs
       screenOptions={{
@@ -40,7 +63,10 @@ export default function TabsLayout() {
           tabBarBadgeStyle: { backgroundColor: colors.danger, color: colors.onPrimary },
         }}
       />
-      <Tabs.Screen name="orders" options={{ title: 'Orders', tabBarIcon: icon('receipt', 'receipt-outline') }} />
+      <Tabs.Screen
+        name="orders"
+        options={{ title: 'Orders', href: showOrdersTab(access.status) ? undefined : null, tabBarIcon: icon('receipt', 'receipt-outline') }}
+      />
       <Tabs.Screen name="account" options={{ title: 'Account', tabBarIcon: icon('grid', 'grid-outline') }} />
       <Tabs.Screen name="sell" options={{ href: null, title: 'Post a listing' }} />
     </Tabs>

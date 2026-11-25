@@ -8,8 +8,9 @@ import { formatKwacha } from '../../src/domain/money';
 import { fetchSalesByListing, fetchSalesReport, type ListingSalesRow, type SalesRow } from '../../src/features/analytics/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { SellerGate } from '../../src/components/SellerGate';
 
-export default function SalesReport() {
+function SalesReport() {
   const { business } = useLocalSearchParams<{ business?: string }>();
   const scope = business ?? null;
   const [days, setDays] = useState<number>(30);
@@ -93,3 +94,12 @@ const styles = StyleSheet.create({
   text: { fontSize: 14, lineHeight: 20, color: colors.muted },
   small: { fontSize: 12, color: colors.muted },
 });
+
+// Selling screens open only for verified sellers (and business members). Everyone else is invited to apply.
+export default function SalesReportGated() {
+  return (
+    <SellerGate>
+      <SalesReport />
+    </SellerGate>
+  );
+}

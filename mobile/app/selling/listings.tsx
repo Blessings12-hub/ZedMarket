@@ -8,6 +8,7 @@ import { FILTERS, newPrice, parseNumber, parseWhole, sellerState, toggle, type P
 import { bulkPrices, bulkStock, fetchTracker, type TrackedListing } from '../../src/features/seller/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { SellerGate } from '../../src/components/SellerGate';
 
 type Panel = null | 'price' | 'stock';
 const MODES: { key: PriceMode; label: string; hint: string }[] = [
@@ -17,7 +18,7 @@ const MODES: { key: PriceMode; label: string; hint: string }[] = [
 ];
 
 // One list for people selling on their own (no business param) and for a business (?business=<id>).
-export default function SellerListings() {
+function SellerListings() {
   const router = useRouter();
   const { business } = useLocalSearchParams<{ business?: string }>();
   const biz = business ? String(business) : null;
@@ -133,3 +134,12 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.sm },
   cardOn: { borderColor: colors.primary, borderWidth: 2 },
 });
+
+// Selling screens open only for verified sellers (and business members). Everyone else is invited to apply.
+export default function SellerListingsGated() {
+  return (
+    <SellerGate>
+      <SellerListings />
+    </SellerGate>
+  );
+}

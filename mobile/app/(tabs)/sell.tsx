@@ -12,8 +12,9 @@ import { loadReferenceData, pickPhotos, publishListing, type PickedPhoto } from 
 import type { Category, Location } from '../../src/features/listings/types';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { SellerGate } from '../../src/components/SellerGate';
 
-export default function SellScreen() {
+function SellScreen() {
   const router = useRouter();
   const { userId } = useAuth();
 
@@ -267,3 +268,12 @@ const styles = StyleSheet.create({
   doneTitle: { fontSize: 24, fontWeight: '700', color: colors.text },
   doneText: { fontSize: 16, lineHeight: 24, color: colors.muted },
 });
+
+// Selling screens open only for verified sellers (and business members). Everyone else is invited to apply.
+export default function SellScreenGated() {
+  return (
+    <SellerGate>
+      <SellScreen />
+    </SellerGate>
+  );
+}
