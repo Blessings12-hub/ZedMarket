@@ -54,7 +54,7 @@ export default function MyListings() {
         </Pressable>
       ))}
       <Button title="Post a listing" onPress={() => router.push('/(tabs)/sell')} />
-      <Button title="Prices, copies and status history" variant="secondary" onPress={() => router.push('/seller/listings')} />
+      <Button title="Prices, copies and status history" variant="secondary" onPress={() => router.push('/selling/listings')} />
     </ScrollView>
   );
 }
