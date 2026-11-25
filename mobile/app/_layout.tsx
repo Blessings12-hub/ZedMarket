@@ -41,6 +41,7 @@ function AuthGate() {
       <Stack.Screen name="delivery/areas" options={{ title: 'Where I deliver' }} />
       <Stack.Screen name="saved" options={{ title: 'Saved items' }} />
       <Stack.Screen name="verify/index" options={{ title: 'Get verified' }} />
+      <Stack.Screen name="verify/seller" options={{ title: 'Become a seller' }} />
       <Stack.Screen name="verify/identity" options={{ title: 'Identity check' }} />
       <Stack.Screen name="verify/business" options={{ title: 'Business' }} />
       <Stack.Screen name="review/[orderId]" options={{ title: 'Leave a review' }} />
@@ -101,14 +102,16 @@ function AuthGate() {
       <Stack.Screen name="business/manage/[id]/team" options={{ title: 'Team' }} />
       <Stack.Screen name="business/manage/[id]/branches" options={{ title: 'Branches' }} />
       <Stack.Screen name="business/manage/[id]/catalogues" options={{ title: 'Catalogues' }} />
-      <Stack.Screen name="seller/listings" options={{ title: 'Listings' }} />
-      <Stack.Screen name="seller/listing/[id]" options={{ title: 'Listing' }} />
+      <Stack.Screen name="selling/listings" options={{ title: 'Listings' }} />
+      <Stack.Screen name="selling/listing/[id]" options={{ title: 'Listing' }} />
       <Stack.Screen name="admin/jobs" options={{ title: 'Your jobs' }} />
       <Stack.Screen name="business/manage/[id]/imports/index" options={{ title: 'Import products' }} />
       <Stack.Screen name="business/manage/[id]/imports/[job]" options={{ title: 'Import' }} />
       <Stack.Screen name="business/manage/[id]/analytics" options={{ title: 'Analytics' }} />
       <Stack.Screen name="trust/index" options={{ title: 'User & Trust Management' }} />
       <Stack.Screen name="trust/applications" options={{ title: 'Verification applications' }} />
+      <Stack.Screen name="trust/seller-applications" options={{ title: 'Seller applications' }} />
+      <Stack.Screen name="trust/seller-application/[id]" options={{ title: 'Review application' }} />
       <Stack.Screen name="trust/users" options={{ title: 'Users' }} />
       <Stack.Screen name="trust/user/[id]" options={{ title: 'User profile' }} />
       <Stack.Screen name="trust/audit" options={{ title: 'Audit trail' }} />
