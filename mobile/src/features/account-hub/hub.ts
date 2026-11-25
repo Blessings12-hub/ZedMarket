@@ -6,13 +6,19 @@ export type HubHref = { pathname: string; params?: Record<string, string> };
 export type HubItem = { key: string; title: string; subtitle?: string; href: HubHref; badge?: string };
 export type HubSection = { key: string; title: string; items: HubItem[] };
 
+export type SellerApplicationState = 'draft' | 'submitted' | 'under_review' | 'additional_information_required' | 'approved' | 'rejected' | 'suspended' | 'revoked';
+
 export type HubBusiness = { id: string; name: string; slug: string; role: BusinessRole; verified: boolean };
 
 export type HubFacts = {
   isStaff: boolean;
-  // True once the person has started selling (verified identity, or listings they already posted). Buyers are never
-  // shown selling tools. The database still decides what a seller may do.
+  // True only once support has approved the person as a seller (profiles.seller_status = 'active'). Buyers, applicants
+  // and rejected applicants are never shown selling tools. The database still decides what a seller may do.
   isSeller: boolean;
+  // 'suspended' and 'revoked' keep the history visible but switch every selling tool off.
+  sellerStatus: 'none' | 'active' | 'suspended' | 'revoked';
+  // Where my latest individual-seller application stands, if I have one.
+  sellerApplication: SellerApplicationState | null;
   paymentsOn: boolean;
   unreadNotifications: number;
   unreadAlerts: number;
@@ -53,10 +59,32 @@ export function sellingSection(f: HubFacts): HubSection {
       { key: 'coverage-areas', title: 'Where I deliver', subtitle: 'Limit delivery to certain places', href: at('/delivery/areas') },
       { key: 'selling-orders', title: 'Selling orders', subtitle: 'Requests from buyers', href: at('/orders'), badge: count(f.openRequestsToMe, 'to answer') },
       { key: 'enquiries', title: 'Customer enquiries', subtitle: 'Chats with interested buyers', href: at('/(tabs)/messages') },
-      { key: 'seller-verification', title: 'Seller verification', subtitle: 'Status and what is needed', href: at('/verify') },
+      { key: 'seller-verification', title: 'Seller status', subtitle: 'Your approval and agreement', href: at('/verify/seller') },
     ],
   };
 }
+
+// A suspended or revoked seller keeps their history and can still read why, but no selling tool is offered.
+export function pausedSellingSection(f: HubFacts): HubSection {
+  const word = f.sellerStatus === 'revoked' ? 'revoked' : 'suspended';
+  return {
+    key: 'selling',
+    title: 'My selling account',
+    items: [
+      { key: 'seller-paused', title: `Selling is ${word}`, subtitle: 'See what happened and how to ask for a review', href: at('/verify/seller'), badge: word },
+      { key: 'my-products', title: 'My products (history)', subtitle: 'Your listings and their history are kept', href: at('/account/listings') },
+      { key: 'selling-orders', title: 'Orders already placed', subtitle: 'Finish or close orders you already have', href: at('/orders'), badge: count(f.openRequestsToMe, 'to answer') },
+    ],
+  };
+}
+
+const APPLICATION_HINT: Partial<Record<SellerApplicationState, { subtitle: string; badge: string }>> = {
+  draft: { subtitle: 'Continue your application', badge: 'Draft' },
+  submitted: { subtitle: 'Sent. Waiting for the verification team', badge: 'Sent' },
+  under_review: { subtitle: 'Being reviewed by the verification team', badge: 'In review' },
+  additional_information_required: { subtitle: 'The team needs more from you', badge: 'Action needed' },
+  rejected: { subtitle: 'See the reason and apply again when you are ready', badge: 'Not approved' },
+};
 
 // The business section follows the business chosen in the switcher. A person with no business sees an invitation to add
 // one, never the management tools.
@@ -82,8 +110,15 @@ export function businessSection(f: HubFacts): HubSection | null {
 // Selling is opt-in. A buyer sees an invitation, not the tools. Business registration is separate from selling as a person.
 export function becomeSellerSection(f: HubFacts): HubSection | null {
   const items: HubItem[] = [];
-  if (!f.isSeller) {
-    items.push({ key: 'become-seller', title: 'Become an individual seller', subtitle: 'For people selling their own products. Verify your identity to start.', href: at('/verify'), badge: 'Application required' });
+  if (f.sellerStatus === 'none') {
+    const hint = f.sellerApplication ? APPLICATION_HINT[f.sellerApplication] : undefined;
+    items.push({
+      key: 'become-seller',
+      title: 'Become an individual seller',
+      subtitle: hint?.subtitle ?? 'For people selling their own products. Tell us about yourself and verify your identity.',
+      href: at('/verify/seller'),
+      badge: hint?.badge ?? 'Application required',
+    });
   }
   if (f.businesses.length === 0) {
     items.push({ key: 'register-business', title: 'Register a business', subtitle: 'For shops, companies and organisations', href: at('/business/manage'), badge: 'Verification required' });
@@ -126,7 +161,7 @@ export function staffSection(f: HubFacts): HubSection | null {
 export function buildHub(f: HubFacts): HubSection[] {
   return [
     purchasesSection(f),
-    f.isSeller ? sellingSection(f) : null,
+    f.sellerStatus === 'active' ? sellingSection(f) : f.sellerStatus === 'none' ? null : pausedSellingSection(f),
     businessSection(f),
     becomeSellerSection(f),
     communicationSection(f),

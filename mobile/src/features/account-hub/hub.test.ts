@@ -4,7 +4,7 @@ import test from 'node:test';
 import { buildHub, businessSection, contextOptions, emailStatus, memberSince, passwordProblem, profileProblem, validContext, type HubBusiness, type HubFacts } from './hub';
 
 const base: HubFacts = {
-  isStaff: false, isSeller: false, paymentsOn: false, unreadNotifications: 0, unreadAlerts: 0, openRequestsToMe: 0, activeBuying: 0,
+  isStaff: false, isSeller: false, sellerStatus: 'none', sellerApplication: null, paymentsOn: false, unreadNotifications: 0, unreadAlerts: 0, openRequestsToMe: 0, activeBuying: 0,
   listings: { live: 0, waiting: 0, total: 0 }, businesses: [], context: 'personal',
 };
 const biz = (role: HubBusiness['role'], verified = true): HubBusiness => ({ id: 'b1', name: 'Shop', slug: 'shop', role, verified });
@@ -21,10 +21,10 @@ test('an ordinary buyer sees buying, an invitation to sell, help and settings, b
 });
 
 test('a seller sees the selling tools and is no longer invited to apply', () => {
-  const k = keys({ ...base, isSeller: true, businesses: [biz('owner')] });
+  const k = keys({ ...base, isSeller: true, sellerStatus: 'active', businesses: [biz('owner')] });
   assert.ok(k.includes('my-products') && k.includes('seller-dashboard') && k.includes('post'));
   assert.ok(!k.includes('become-seller') && !k.includes('register-business'));
-  assert.deepEqual(buildHub({ ...base, isSeller: true }).map((s) => s.key), ['purchases', 'selling', 'become-seller', 'communication', 'settings']);
+  assert.deepEqual(buildHub({ ...base, isSeller: true, sellerStatus: 'active' }).map((s) => s.key), ['purchases', 'selling', 'become-seller', 'communication', 'settings']);
 });
 
 test('payments only appear when payments are switched on', () => {
@@ -70,7 +70,7 @@ test('the switcher lists personal first, then each business', () => {
 });
 
 test('badges show real counts and stay hidden at zero', () => {
-  const sections = buildHub({ ...base, isSeller: true, unreadNotifications: 3, openRequestsToMe: 2, activeBuying: 1 });
+  const sections = buildHub({ ...base, isSeller: true, sellerStatus: 'active', unreadNotifications: 3, openRequestsToMe: 2, activeBuying: 1 });
   const badge = (key: string) => sections.flatMap((s) => s.items).find((i) => i.key === key)?.badge;
   assert.equal(badge('notifications'), '3 new');
   assert.equal(badge('selling-orders'), '2 to answer');
@@ -79,7 +79,7 @@ test('badges show real counts and stay hidden at zero', () => {
 });
 
 test('product summary reflects the real counts', () => {
-  const s = buildHub({ ...base, isSeller: true, listings: { live: 2, waiting: 1, total: 4 } }).flatMap((x) => x.items).find((i) => i.key === 'my-products');
+  const s = buildHub({ ...base, isSeller: true, sellerStatus: 'active', listings: { live: 2, waiting: 1, total: 4 } }).flatMap((x) => x.items).find((i) => i.key === 'my-products');
   assert.equal(s?.subtitle, '2 live, 1 waiting for review');
 });
 
@@ -102,8 +102,26 @@ test('small helpers', () => {
 });
 
 test('saved addresses and coverage places are listed, and only the seller item is under selling', () => {
-  const hub = buildHub({ ...base, isSeller: true });
+  const hub = buildHub({ ...base, isSeller: true, sellerStatus: 'active' });
   const where = (key: string) => hub.find((s) => s.items.some((i) => i.key === key))?.key;
   assert.equal(where('addresses'), 'settings');
   assert.equal(where('coverage-areas'), 'selling');
+});
+
+test('a suspended seller keeps their history but gets no selling tools', () => {
+  const hub = buildHub({ ...base, sellerStatus: 'suspended' });
+  const selling = hub.find((x) => x.key === 'selling');
+  assert.ok(selling);
+  const ks = selling.items.map((i) => i.key);
+  assert.ok(ks.includes('seller-paused') && ks.includes('my-products'));
+  assert.ok(!ks.includes('post') && !ks.includes('seller-dashboard'));
+  assert.ok(!hub.flatMap((x) => x.items).some((i) => i.key === 'become-seller'), 'suspended sellers do not see the apply button');
+});
+
+test('an applicant sees their application state, never the selling tools', () => {
+  const hub = buildHub({ ...base, sellerApplication: 'additional_information_required' });
+  assert.ok(!hub.some((x) => x.key === 'selling'));
+  const item = hub.flatMap((x) => x.items).find((i) => i.key === 'become-seller');
+  assert.equal(item?.badge, 'Action needed');
+  assert.equal(item?.href.pathname, '/verify/seller');
 });

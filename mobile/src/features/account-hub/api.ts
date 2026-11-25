@@ -19,8 +19,9 @@ export type HubProfile = {
 // Every number the hub shows is counted from real rows. A failed piece of data becomes zero or "off" rather than
 // blocking the whole page.
 export async function fetchHub(userId: string): Promise<{ profile: HubProfile; facts: Omit<HubFacts, 'context'> }> {
-  const [p, listings, roles, memberships, unreadN, unreadA, payOn, mine, requests] = await Promise.all([
-    supabase.from('profiles').select('display_name, bio, avatar_path, verification_level, account_state, created_at').eq('id', userId).single(),
+  const [p, app, listings, roles, memberships, unreadN, unreadA, payOn, mine, requests] = await Promise.all([
+    supabase.from('profiles').select('display_name, bio, avatar_path, verification_level, account_state, created_at, seller_status').eq('id', userId).single(),
+    supabase.rpc('seller_application_mine'),
     fetchMyListings(userId).catch(() => []),
     fetchMyRoles(userId).catch(() => []),
     supabase.from('business_members').select('role, business:businesses(id, name, slug, verification_status)').eq('user_id', userId),
@@ -31,7 +32,7 @@ export async function fetchHub(userId: string): Promise<{ profile: HubProfile; f
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('seller_id', userId).is('business_id', null).eq('status', 'requested'),
   ]);
   if (p.error) throw p.error;
-  const r = p.data as { display_name: string; bio: string | null; avatar_path: string | null; verification_level: HubProfile['level']; account_state: HubProfile['state']; created_at: string };
+  const r = p.data as { display_name: string; bio: string | null; avatar_path: string | null; verification_level: HubProfile['level']; account_state: HubProfile['state']; created_at: string; seller_status: HubFacts['sellerStatus'] };
 
   const rows = (memberships.data ?? []) as unknown as { role: HubBusiness['role']; business: { id: string; name: string; slug: string; verification_status: string } | null }[];
   const businesses: HubBusiness[] = rows.flatMap((m) =>
@@ -42,7 +43,9 @@ export async function fetchHub(userId: string): Promise<{ profile: HubProfile; f
     profile: { displayName: r.display_name, bio: r.bio ?? '', avatarPath: r.avatar_path, level: r.verification_level, state: r.account_state, createdAt: r.created_at },
     facts: {
       isStaff: roles.length > 0,
-      isSeller: r.verification_level === 'identity_verified' || listings.length > 0,
+      isSeller: r.seller_status === 'active',
+      sellerStatus: r.seller_status ?? 'none',
+      sellerApplication: ((app.data as { application: { status: HubFacts['sellerApplication'] } | null } | null)?.application?.status) ?? null,
       paymentsOn: payOn,
       unreadNotifications: unreadN,
       unreadAlerts: unreadA,
