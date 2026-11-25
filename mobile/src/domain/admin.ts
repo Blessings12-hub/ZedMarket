@@ -77,3 +77,46 @@ export function canSeeFinance(roles: AdminRole[]): boolean {
 export function canWorkTickets(roles: AdminRole[]): boolean {
   return roles.includes('support') || roles.includes('tech_admin');
 }
+
+// What each staff role is responsible for. Every item marked "enforced" is checked by the database itself
+// (has_staff_role plus a two-factor session); this list only explains it on screen. Items under "coming" are not
+// built yet and are shown separately so nobody assumes they exist.
+export type RoleJobs = { summary: string; enforced: string[]; coming: string[] };
+
+export const ROLE_JOBS: Record<AdminRole, RoleJobs> = {
+  finance: {
+    summary: 'Money in and out of the platform: payments, refunds and the numbers that prove them.',
+    enforced: [
+      'Reconcile a payment by hand when the provider never answered or answered late. You must write what you checked.',
+      'Request a refund against a settled payment, within the amount still refundable.',
+      'Decide a refund that someone else requested. You can never approve your own request, and a rejection needs a reason.',
+      'Record that an approved refund was paid out (or failed), with the provider reference.',
+      'Read the payments list, payment details, the refund queue and the finance summary.',
+      'Read finance and platform statistics.',
+    ],
+    coming: [
+      'Reconcile advertising payments (arrives with the advertising module).',
+      'Refund an unused advertising balance (arrives with the advertising module).',
+    ],
+  },
+  moderator: {
+    summary: 'Keeping listings and reports within the rules.',
+    enforced: ['Approve, reject or remove listings.', 'Handle reports and risk flags.', 'Review appeals and verification requests.'],
+    coming: ['Work the product moderation queue, highest risk first.'],
+  },
+  support: {
+    summary: 'Helping people with their orders, accounts and disputes.',
+    enforced: ['Work help desk tickets.', 'Handle reports and disputes.', 'Read the user trust view.'],
+    coming: [],
+  },
+  tech_admin: {
+    summary: 'Who has staff access, and the health of the platform.',
+    enforced: ['Add and remove staff roles.', 'Read the audit log.', 'Read platform statistics.'],
+    coming: [],
+  },
+};
+
+export function jobsFor(roles: AdminRole[]): { role: AdminRole; jobs: RoleJobs }[] {
+  const order: AdminRole[] = ['finance', 'moderator', 'support', 'tech_admin'];
+  return order.filter((r) => roles.includes(r)).map((role) => ({ role, jobs: ROLE_JOBS[role] }));
+}

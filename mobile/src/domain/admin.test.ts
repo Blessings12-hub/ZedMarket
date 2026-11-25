@@ -39,3 +39,16 @@ test('support and team tools are limited to their own roles', () => {
   assert.equal(canManageTeam(['moderator', 'support']), false);
   assert.equal(canManageTeam(['tech_admin']), true);
 });
+
+test('every role has written jobs, and finance covers payments and refunds with a separation of duties', async () => {
+  const { ROLE_JOBS, jobsFor } = await import('./admin');
+  for (const role of ['finance', 'moderator', 'support', 'tech_admin'] as const) {
+    assert.ok(ROLE_JOBS[role].summary.length > 10);
+    assert.ok(ROLE_JOBS[role].enforced.length > 0);
+  }
+  const text = ROLE_JOBS.finance.enforced.join(' ');
+  assert.match(text, /Reconcile a payment/);
+  assert.match(text, /never approve your own request/);
+  assert.deepEqual(jobsFor(['support', 'finance']).map((j) => j.role), ['finance', 'support']);
+  assert.deepEqual(jobsFor([]), []);
+});
