@@ -74,7 +74,10 @@ export default function TrustHome() {
 
       {reader ? (
         <>
-          <SectionTitle>Verification applications</SectionTitle>
+          <SectionTitle>Seller and business verification</SectionTitle>
+          <Button title="Seller applications and queues" onPress={() => router.push('/trust/seller-applications')} />
+
+          <SectionTitle>Identity and business checks (earlier flow)</SectionTitle>
           <Button title="Pending applications" onPress={() => router.push({ pathname: '/trust/applications', params: { status: 'pending' } })} />
           <Button title="Rejected applications" variant="secondary" onPress={() => router.push({ pathname: '/trust/applications', params: { status: 'rejected' } })} />
 
