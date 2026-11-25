@@ -57,6 +57,8 @@ insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-00000000000b', 'buyer@example.test',  '{"display_name":"Buyer Test"}'),
   ('00000000-0000-0000-0000-00000000000c', 'other@example.test',  '{"display_name":"Other Test"}'),
   ('00000000-0000-0000-0000-00000000000d', 'staff@example.test',  '{"display_name":"Staff Test"}');
+-- Posting needs an approved seller (migration 0023). These fixtures are sellers; onboarding.sql covers buyers and applicants.
+update public.profiles set seller_status = 'active';
 
 insert into public.admin_roles (user_id, role) values ('00000000-0000-0000-0000-00000000000d', 'moderator');
 

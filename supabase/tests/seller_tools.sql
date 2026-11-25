@@ -69,6 +69,8 @@ insert into auth.users (id, email, raw_user_meta_data, email_confirmed_at) value
   ('00000000-0000-0000-0000-00000000000c', 'staff@example.test',   '{"display_name":"Staff Sipho"}', now()),
   ('00000000-0000-0000-0000-00000000000d', 'outsider@example.test','{"display_name":"Outsider Omar"}', now()),
   ('00000000-0000-0000-0000-00000000000e', 'solo@example.test',    '{"display_name":"Solo Seller"}', now());
+-- Posting needs an approved seller (migration 0023). These fixtures are sellers; onboarding.sql covers buyers and applicants.
+update public.profiles set seller_status = 'active';
 insert into public.businesses (id, owner_id, name, slug, description, location_id)
 values ('20000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'Olive Electronics', 'olive-electronics', 'x',
         (select id from public.locations where area = 'Kabulonga'));

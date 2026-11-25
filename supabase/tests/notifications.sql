@@ -68,6 +68,8 @@ insert into auth.users (id, email, phone, raw_user_meta_data, email_confirmed_at
   ('00000000-0000-0000-0000-000000000001', 'mod@example.test',    null,            '{"display_name":"Moderator Mo"}', now(), null),
   ('00000000-0000-0000-0000-00000000000d', 'manager@example.test', null,           '{"display_name":"Manager Mwila"}', now(), null),
   ('00000000-0000-0000-0000-00000000000f', 'staff@example.test',   null,           '{"display_name":"Staff Sipho"}', now(), null);
+-- Posting needs an approved seller (migration 0023). These fixtures are sellers; onboarding.sql covers buyers and applicants.
+update public.profiles set seller_status = 'active';
 insert into public.admin_roles (user_id, role) values
   ('00000000-0000-0000-0000-00000000000e', 'support'),
   ('00000000-0000-0000-0000-000000000001', 'moderator');
