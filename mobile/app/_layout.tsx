@@ -56,7 +56,6 @@ function AuthGate() {
       <Stack.Screen name="analytics/index" options={{ title: 'My numbers' }} />
       <Stack.Screen name="analytics/sales" options={{ title: 'Sales report' }} />
       <Stack.Screen name="analytics/listing/[id]" options={{ title: 'Listing numbers' }} />
-      <Stack.Screen name="console" options={{ headerShown: false }} />
       <Stack.Screen name="admin/stats" options={{ title: 'Statistics' }} />
       <Stack.Screen name="finance/index" options={{ title: 'Finance' }} />
       <Stack.Screen name="finance/payment/[id]" options={{ title: 'Payment' }} />
@@ -102,6 +101,9 @@ function AuthGate() {
       <Stack.Screen name="business/manage/[id]/team" options={{ title: 'Team' }} />
       <Stack.Screen name="business/manage/[id]/branches" options={{ title: 'Branches' }} />
       <Stack.Screen name="business/manage/[id]/catalogues" options={{ title: 'Catalogues' }} />
+      <Stack.Screen name="admin/jobs" options={{ title: 'Your jobs' }} />
+      <Stack.Screen name="business/manage/[id]/imports/index" options={{ title: 'Import products' }} />
+      <Stack.Screen name="business/manage/[id]/imports/[job]" options={{ title: 'Import' }} />
       <Stack.Screen name="business/manage/[id]/analytics" options={{ title: 'Analytics' }} />
       <Stack.Screen name="trust/index" options={{ title: 'User & Trust Management' }} />
       <Stack.Screen name="trust/applications" options={{ title: 'Verification applications' }} />
