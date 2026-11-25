@@ -22,6 +22,7 @@ export default function BusinessDashboard() {
 
       <SectionTitle>Every day</SectionTitle>
       {roleCan(role, 'manage_orders') ? <Button title="Orders" onPress={() => go('/business/manage/[id]/orders')} /> : null}
+      {roleCan(role, 'manage_inventory') && roleCan(role, 'manage_listings') ? <Button title="Import products" variant="secondary" onPress={() => go('/business/manage/[id]/imports')} /> : null}
       {roleCan(role, 'manage_inventory') ? <Button title="Stock" variant="secondary" onPress={() => go('/business/manage/[id]/inventory')} /> : null}
       <Button title="Post a business listing" variant="secondary" onPress={() => router.push('/(tabs)/sell')} />
 
