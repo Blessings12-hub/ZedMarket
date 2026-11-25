@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -6,8 +7,29 @@ import { colors, radius, spacing } from '../../theme';
 import { avatarUrl, type HubProfile } from './api';
 import { contextOptions, emailStatus, memberSince, type HubBusiness, type HubItem, type HubSection } from './hub';
 
-export function AccountHeader({ profile, email, emailConfirmedAt, onEdit, onShare }: {
-  profile: HubProfile; email: string | undefined; emailConfirmedAt: string | null | undefined; onEdit: () => void; onShare?: () => void;
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
+
+// One icon per hub row, chosen by the row's key so the rules in hub.ts stay free of screen code.
+const ICONS: Record<string, IconName> = {
+  // buying
+  orders: 'receipt-outline', saved: 'heart-outline', cart: 'cart-outline', messages: 'chatbubble-ellipses-outline', listings: 'pricetags-outline',
+  alerts: 'search-outline', reviews: 'star-outline', payments: 'card-outline',
+  // help and settings
+  notifications: 'notifications-outline', support: 'help-buoy-outline', cases: 'document-text-outline',
+  personal: 'person-outline', addresses: 'location-outline', security: 'shield-checkmark-outline', 'notification-settings': 'options-outline',
+  // selling and business
+  'seller-dashboard': 'stats-chart-outline', 'my-products': 'cube-outline', post: 'add-circle-outline', 'coverage-areas': 'navigate-outline',
+  'selling-orders': 'receipt-outline', enquiries: 'chatbubble-ellipses-outline', 'seller-verification': 'ribbon-outline', 'seller-paused': 'pause-circle-outline',
+  storefront: 'storefront-outline', public: 'globe-outline', catalogue: 'albums-outline', inventory: 'layers-outline', 'biz-orders': 'receipt-outline',
+  branches: 'git-branch-outline', team: 'people-outline', 'biz-analytics': 'stats-chart-outline', 'biz-verify': 'ribbon-outline',
+  'become-seller': 'storefront-outline', 'register-business': 'business-outline',
+  // staff
+  'staff-tools': 'construct-outline',
+};
+const iconFor = (key: string): IconName => ICONS[key] ?? 'ellipse-outline';
+
+export function AccountHeader({ profile, email, emailConfirmedAt, onEdit, onShare, isSeller }: {
+  profile: HubProfile; email: string | undefined; emailConfirmedAt: string | null | undefined; onEdit: () => void; onShare?: () => void; isSeller?: boolean;
 }) {
   const url = avatarUrl(profile.avatarPath);
   const initials = profile.displayName.trim().slice(0, 1).toUpperCase();
@@ -22,6 +44,7 @@ export function AccountHeader({ profile, email, emailConfirmedAt, onEdit, onShar
           {email ? <Text style={styles.muted} numberOfLines={1}>{email}</Text> : null}
           <View style={styles.badges}>
             <VerifiedBadge level={profile.level} />
+            {isSeller ? <Text style={[styles.pill, styles.pillOk]}>Verified seller</Text> : null}
             <Text style={[styles.pill, emailStatus(emailConfirmedAt) === 'verified' ? styles.pillOk : styles.pillWarn]}>
               {emailStatus(emailConfirmedAt) === 'verified' ? 'Email confirmed' : 'Email not confirmed'}
             </Text>
@@ -53,14 +76,15 @@ export function AccountTypeSwitcher({ businesses, value, onChange }: { businesse
   );
 }
 
-export type QuickAction = { key: string; label: string; onPress: () => void; badge?: string };
+export type QuickAction = { key: string; label: string; onPress: () => void; badge?: string; icon?: string };
 export function AccountQuickActions({ actions }: { actions: QuickAction[] }) {
   return (
     <View style={styles.quick}>
       {actions.map((a) => (
         <Pressable key={a.key} accessibilityRole="button" accessibilityLabel={a.badge ? `${a.label}, ${a.badge}` : a.label} onPress={a.onPress} style={styles.tile}>
-          <Text style={styles.tileLabel}>{a.label}</Text>
-          {a.badge ? <Text style={styles.tileBadge}>{a.badge}</Text> : null}
+          <Ionicons name={iconFor(a.icon ?? a.key)} size={24} color={colors.primary} accessibilityElementsHidden />
+          <Text style={styles.tileLabel} numberOfLines={1}>{a.label}</Text>
+          {a.badge ? <Text style={styles.tileBadge} numberOfLines={1}>{a.badge}</Text> : null}
         </Pressable>
       ))}
     </View>
@@ -70,12 +94,15 @@ export function AccountQuickActions({ actions }: { actions: QuickAction[] }) {
 export function AccountMenuItem({ item, last, onPress }: { item: HubItem; last: boolean; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={item.badge ? `${item.title}, ${item.badge}` : item.title} onPress={onPress} style={[styles.item, !last && styles.itemLine]}>
+      <View style={styles.iconChip} accessibilityElementsHidden>
+        <Ionicons name={iconFor(item.key)} size={20} color={colors.primary} />
+      </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.itemTitle}>{item.title}</Text>
         {item.subtitle ? <Text style={styles.muted}>{item.subtitle}</Text> : null}
       </View>
       {item.badge ? <Text style={styles.itemBadge}>{item.badge}</Text> : null}
-      <Text style={styles.chev} accessibilityElementsHidden>{'>'}</Text>
+      <Ionicons name="chevron-forward" size={18} color={colors.muted} accessibilityElementsHidden />
     </Pressable>
   );
 }
@@ -83,7 +110,10 @@ export function AccountMenuItem({ item, last, onPress }: { item: HubItem; last: 
 export function AccountSection({ section, onOpen, footer }: { section: HubSection; onOpen: (item: HubItem) => void; footer?: ReactNode }) {
   return (
     <View style={{ gap: spacing.sm }}>
-      <Text style={styles.sectionTitle} accessibilityRole="header">{section.title}</Text>
+      <View style={{ gap: 2 }}>
+        <Text style={styles.sectionTitle} accessibilityRole="header">{section.title}</Text>
+        {section.note ? <Text style={styles.muted}>{section.note}</Text> : null}
+      </View>
       <View style={styles.card}>
         {section.items.map((it, i) => <AccountMenuItem key={it.key} item={it} last={i === section.items.length - 1} onPress={() => onOpen(it)} />)}
       </View>
@@ -142,15 +172,15 @@ const styles = StyleSheet.create({
   segText: { fontSize: 14, color: colors.muted, fontWeight: '600' },
   segTextOn: { color: colors.primary },
   quick: { flexDirection: 'row', gap: spacing.sm },
-  tile: { flex: 1, minHeight: 72, backgroundColor: colors.primarySoft, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', padding: spacing.sm, gap: 2 },
-  tileLabel: { fontSize: 14, fontWeight: '600', color: colors.primaryDark },
+  tile: { flex: 1, minHeight: 84, backgroundColor: colors.primarySoft, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', padding: spacing.sm, gap: 4 },
+  tileLabel: { fontSize: 13, fontWeight: '600', color: colors.primaryDark },
   tileBadge: { fontSize: 11, color: colors.primary },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginTop: spacing.sm },
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text, marginTop: spacing.md },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 56, paddingVertical: spacing.sm },
   itemLine: { borderBottomWidth: 1, borderBottomColor: colors.border },
   itemTitle: { fontSize: 15, fontWeight: '600', color: colors.text },
   itemBadge: { fontSize: 12, fontWeight: '600', color: colors.primary, backgroundColor: colors.primarySoft, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.sm, overflow: 'hidden' },
-  chev: { fontSize: 18, color: colors.muted },
+  iconChip: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
   summary: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
   statValue: { fontSize: 20, fontWeight: '700', color: colors.text },
 });

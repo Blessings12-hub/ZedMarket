@@ -8,8 +8,9 @@ import { formatKwacha } from '../../../src/domain/money';
 import { fetchListingPerformance } from '../../../src/features/analytics/api';
 import { friendlyError } from '../../../src/lib/errors';
 import { colors, radius, spacing } from '../../../src/theme';
+import { SellerGate } from '../../../src/components/SellerGate';
 
-export default function ListingNumbers() {
+function ListingNumbers() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [days, setDays] = useState<number>(30);
   const [d, setD] = useState<any | null>(null);
@@ -67,3 +68,12 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, color: colors.muted },
   value: { fontSize: 15, fontWeight: '600', color: colors.text },
 });
+
+// Selling screens open only for verified sellers (and business members). Everyone else is invited to apply.
+export default function ListingNumbersGated() {
+  return (
+    <SellerGate>
+      <ListingNumbers />
+    </SellerGate>
+  );
+}

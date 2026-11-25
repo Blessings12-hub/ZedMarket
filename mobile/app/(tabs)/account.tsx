@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, Share, StyleSheet, View } from 'react-na
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Notice } from '../../src/components/ui';
+import { canShareSellerProfile } from '../../src/domain/sellerAccess';
 import { sellerLink, sellerShareMessage, webBase } from '../../src/domain/share';
 import { fetchHub, type HubProfile } from '../../src/features/account-hub/api';
 import {
@@ -17,6 +18,7 @@ import {
 import { buildHub, validContext, type HubFacts, type HubItem } from '../../src/features/account-hub/hub';
 import { watchNotifications, countUnreadNotifications } from '../../src/features/notifications/api';
 import { disablePushForThisPhone } from '../../src/features/notifications/push';
+import { setSellingAccess } from '../../src/features/seller/status';
 import { friendlyError } from '../../src/lib/errors';
 import { supabase } from '../../src/lib/supabase';
 import { colors, spacing } from '../../src/theme';
@@ -36,6 +38,8 @@ export default function AccountHub() {
       const hub = await fetchHub(userId);
       setProfile(hub.profile);
       setFacts(hub.facts);
+      // Tell the bottom bar and the selling screens what the team has decided about this person.
+      setSellingAccess({ status: hub.facts.sellerStatus, hasBusiness: hub.facts.businesses.length > 0 });
       setContext((c) => validContext(c, hub.facts.businesses));
       setError('');
     } catch (e) {
@@ -75,6 +79,10 @@ export default function AccountHub() {
 
   const sections = buildHub({ ...facts, context });
   const selected = facts.businesses.find((b) => b.id === context);
+  const isSeller = facts.sellerStatus === 'active';
+  // Everything about selling sits together at the bottom, so the business switcher goes with it.
+  const sellingKeys = ['selling', 'business', 'become-seller'];
+  const firstSellingKey = sections.find((x) => sellingKeys.includes(x.key))?.key;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -85,33 +93,38 @@ export default function AccountHub() {
         email={session?.user.email}
         emailConfirmedAt={session?.user.email_confirmed_at}
         onEdit={() => router.push('/profile/edit')}
-        onShare={shareProfile}
+        onShare={canShareSellerProfile(facts.sellerStatus) ? shareProfile : undefined}
+        isSeller={isSeller}
       />
       {profile.state !== 'active' ? (
         <>
           <Notice tone="warning">
-            {profile.state === 'suspended' ? 'Your account is suspended.' : 'Your account is restricted, so you cannot post new listings.'}
+            {profile.state === 'suspended'
+              ? 'Your account is suspended.'
+              : isSeller
+                ? 'Your account is restricted, so you cannot post new listings.'
+                : 'Your account is restricted.'}
           </Notice>
           <Button title="Appeal this decision" variant="secondary" onPress={() => router.push({ pathname: '/appeal', params: { targetType: 'user', targetId: userId } })} />
         </>
       ) : null}
-
-      <AccountTypeSwitcher businesses={facts.businesses} value={context} onChange={setContext} />
 
       <AccountQuickActions
         actions={[
           { key: 'cart', label: 'Cart', onPress: () => router.push('/(tabs)/cart') },
           { key: 'orders', label: 'Orders', onPress: () => router.push('/orders'), badge: facts.activeBuying > 0 ? `${facts.activeBuying} open` : undefined },
           { key: 'saved', label: 'Saved', onPress: () => router.push('/saved') },
-          ...(facts.isSeller
-            ? [{ key: 'listings', label: 'Listings', onPress: () => router.push('/account/listings'), badge: facts.listings.live > 0 ? `${facts.listings.live} live` : undefined }]
-            : []),
+          // Buyers get Messages here; approved sellers get their listings (Messages is already a tab).
+          isSeller
+            ? { key: 'listings', label: 'Listings', onPress: () => router.push('/account/listings'), badge: facts.listings.live > 0 ? `${facts.listings.live} live` : undefined }
+            : { key: 'messages', label: 'Messages', onPress: () => router.push('/(tabs)/messages') },
         ]}
       />
 
       {sections.map((section) => (
         <View key={section.key} style={{ gap: spacing.sm }}>
-          {section.key === 'selling' ? <SellerSummary {...facts.listings} /> : null}
+          {section.key === firstSellingKey ? <AccountTypeSwitcher businesses={facts.businesses} value={context} onChange={setContext} /> : null}
+          {section.key === 'selling' && isSeller ? <SellerSummary {...facts.listings} /> : null}
           {section.key === 'business' && selected ? <BusinessSummary business={selected} /> : null}
           <AccountSection section={section} onOpen={open} />
         </View>

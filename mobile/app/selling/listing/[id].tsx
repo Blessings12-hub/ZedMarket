@@ -12,8 +12,9 @@ import {
 import { friendlyError } from '../../../src/lib/errors';
 import { listingImageUrl } from '../../../src/lib/supabase';
 import { colors, radius, spacing } from '../../../src/theme';
+import { SellerGate } from '../../../src/components/SellerGate';
 
-export default function SellerListing() {
+function SellerListing() {
   const router = useRouter();
   const { id, business } = useLocalSearchParams<{ id: string; business?: string }>();
   const biz = business ? String(business) : null;
@@ -132,3 +133,12 @@ const styles = StyleSheet.create({
   photoRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.sm },
   photo: { width: 84, height: 84, borderRadius: radius.sm ?? 8, backgroundColor: colors.primarySoft },
 });
+
+// Selling screens open only for verified sellers (and business members). Everyone else is invited to apply.
+export default function SellerListingGated() {
+  return (
+    <SellerGate>
+      <SellerListing />
+    </SellerGate>
+  );
+}

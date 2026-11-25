@@ -9,6 +9,7 @@ import { fetchMyListings } from '../../src/features/listings/api';
 import type { MyListing } from '../../src/features/listings/types';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { SellerGate } from '../../src/components/SellerGate';
 
 function listingState(l: MyListing): string {
   if (l.status === 'draft') return 'Draft';
@@ -20,7 +21,7 @@ function listingState(l: MyListing): string {
 }
 
 // The "My listings" list that used to sit on the Profile tab, unchanged: same states, same appeal link.
-export default function MyListings() {
+function MyListings() {
   const router = useRouter();
   const { userId } = useAuth();
   const [listings, setListings] = useState<MyListing[] | null>(null);
@@ -70,3 +71,12 @@ const styles = StyleSheet.create({
   reason: { fontSize: 13, color: colors.danger, marginTop: 2 },
   appeal: { fontSize: 13, color: colors.primary, textDecorationLine: 'underline', marginTop: 4 },
 });
+
+// Selling screens open only for verified sellers (and business members). Everyone else is invited to apply.
+export default function MyListingsGated() {
+  return (
+    <SellerGate>
+      <MyListings />
+    </SellerGate>
+  );
+}

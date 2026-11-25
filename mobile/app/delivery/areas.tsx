@@ -8,12 +8,13 @@ import { COVERAGE_LEVEL_LABELS, formatPlace, type CoverageLevel, type Place } fr
 import { fetchMyDeliveryAreas, saveDeliveryAreas } from '../../src/features/locations/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { SellerGate } from '../../src/components/SellerGate';
 
 type Row = { locationId: number; level: CoverageLevel; label: string };
 
 // Where a seller (or a business, when a businessId is passed) delivers. Leave it empty to deliver anywhere,
 // and agree each delivery with the buyer. Add places to limit it.
-export default function DeliveryAreas() {
+function DeliveryAreas() {
   const { businessId } = useLocalSearchParams<{ businessId?: string }>();
   const biz = businessId ?? null;
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -93,3 +94,12 @@ const styles = StyleSheet.create({
   remove: { fontSize: 14, fontWeight: '600', color: colors.danger },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });
+
+// Selling screens open only for verified sellers (and business members). Everyone else is invited to apply.
+export default function DeliveryAreasGated() {
+  return (
+    <SellerGate>
+      <DeliveryAreas />
+    </SellerGate>
+  );
+}

@@ -69,7 +69,7 @@ export default function EditProfile() {
       </View>
       <Field label="Name shown to others" value={name} onChangeText={setName} maxLength={60} autoCapitalize="words" />
       <Field label="About you (optional)" value={bio} onChangeText={setBio} maxLength={500} multiline style={{ minHeight: 100, textAlignVertical: 'top' }} />
-      <Text style={styles.hint}>Your name and about text are shown on your seller page. Your email and verification documents are never shown there.</Text>
+      <Text style={styles.hint}>Your name and about text are shown on your profile, and on your seller page if you sell. Your email and verification documents are never shown there.</Text>
       <Button title="Save" onPress={save} loading={busy} />
     </ScrollView>
   );

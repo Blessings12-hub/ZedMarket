@@ -17,14 +17,14 @@ test('an ordinary buyer sees buying, an invitation to sell, help and settings, b
   assert.ok(k.includes('become-seller') && k.includes('register-business'));
   assert.ok(!k.includes('staff-tools'));
   assert.ok(!k.includes('catalogue') && !k.includes('team'));
-  assert.deepEqual(buildHub(base).map((s) => s.key), ['purchases', 'become-seller', 'communication', 'settings']);
+  assert.deepEqual(buildHub(base).map((s) => s.key), ['purchases', 'communication', 'settings', 'become-seller']);
 });
 
 test('a seller sees the selling tools and is no longer invited to apply', () => {
   const k = keys({ ...base, isSeller: true, sellerStatus: 'active', businesses: [biz('owner')] });
   assert.ok(k.includes('my-products') && k.includes('seller-dashboard') && k.includes('post'));
   assert.ok(!k.includes('become-seller') && !k.includes('register-business'));
-  assert.deepEqual(buildHub({ ...base, isSeller: true, sellerStatus: 'active' }).map((s) => s.key), ['purchases', 'selling', 'become-seller', 'communication', 'settings']);
+  assert.deepEqual(buildHub({ ...base, isSeller: true, sellerStatus: 'active' }).map((s) => s.key), ['purchases', 'communication', 'settings', 'selling', 'become-seller']);
 });
 
 test('payments only appear when payments are switched on', () => {
@@ -124,4 +124,45 @@ test('an applicant sees their application state, never the selling tools', () =>
   const item = hub.flatMap((x) => x.items).find((i) => i.key === 'become-seller');
   assert.equal(item?.badge, 'Action needed');
   assert.equal(item?.href.pathname, '/verify/seller');
+});
+
+test('everything about selling sits below the buyer sections, together with business registration', () => {
+  const order = (f: HubFacts) => buildHub(f).map((x) => x.key);
+  const buyerFirst = ['purchases', 'communication', 'settings'];
+  // buyer: the invitation to apply and to register a business are one section, after the buyer sections
+  const buyer = order(base);
+  assert.deepEqual(buyer.slice(0, 3), buyerFirst);
+  assert.deepEqual(buyer.slice(3), ['become-seller']);
+  // seller with a business open in the switcher: selling account, then the business centre, below the buyer sections
+  const seller = order({ ...base, isSeller: true, sellerStatus: 'active', businesses: [biz('owner')], context: 'b1' });
+  assert.deepEqual(seller, [...buyerFirst, 'selling', 'business']);
+  // staff always come last
+  const staff = order({ ...base, isStaff: true, isSeller: true, sellerStatus: 'active' });
+  assert.equal(staff[staff.length - 1], 'staff');
+  assert.ok(staff.indexOf('selling') > staff.indexOf('settings'));
+});
+
+test('the sell section tells a buyer that the team verifies sellers first', () => {
+  const section = buildHub(base).find((x) => x.key === 'become-seller');
+  assert.equal(section?.title, 'Sell on ZedMarket');
+  assert.match(section?.note ?? '', /verify/i);
+  assert.deepEqual(section?.items.map((i) => i.key), ['become-seller', 'register-business']);
+  // once someone is approved the note goes away and the section is just about business registration
+  const approved = buildHub({ ...base, isSeller: true, sellerStatus: 'active' }).find((x) => x.key === 'become-seller');
+  assert.equal(approved?.note, undefined);
+  assert.deepEqual(approved?.items.map((i) => i.key), ['register-business']);
+});
+
+test('no selling words or routes reach a buyer outside the sell section', () => {
+  const buyerSections = buildHub(base).filter((x) => x.key !== 'become-seller');
+  const text = buyerSections.flatMap((x) => [x.title, x.note ?? '', ...x.items.flatMap((i) => [i.title, i.subtitle ?? ''])]).join(' | ');
+  assert.ok(!/\bselling\b|\bsell\b|seller dashboard|post a listing|my products/i.test(text), text);
+  const routes = buyerSections.flatMap((x) => x.items.map((i) => i.href.pathname));
+  assert.ok(!routes.some((r) => /sell|analytics|delivery|account\/listings/.test(r)), routes.join(', '));
+});
+
+test('reviews wording only mentions reviews about you for sellers', () => {
+  const sub = (f: HubFacts) => buildHub(f).flatMap((x) => x.items).find((i) => i.key === 'reviews')?.subtitle;
+  assert.equal(sub(base), 'Reviews you have written');
+  assert.equal(sub({ ...base, isSeller: true, sellerStatus: 'active' }), 'Reviews you wrote and reviews about you');
 });

@@ -8,6 +8,7 @@ import { formatKwacha } from '../../src/domain/money';
 import { fetchEngagement, fetchSellerAnalytics } from '../../src/features/analytics/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { SellerGate } from '../../src/components/SellerGate';
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -19,7 +20,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-export default function SellerNumbers() {
+function SellerNumbers() {
   const router = useRouter();
   const { business } = useLocalSearchParams<{ business?: string }>();
   const scope = business ?? null;
@@ -122,3 +123,12 @@ const styles = StyleSheet.create({
   text: { fontSize: 15, lineHeight: 22, color: colors.muted },
   small: { fontSize: 12, color: colors.muted },
 });
+
+// Selling screens open only for verified sellers (and business members). Everyone else is invited to apply.
+export default function SellerNumbersGated() {
+  return (
+    <SellerGate>
+      <SellerNumbers />
+    </SellerGate>
+  );
+}

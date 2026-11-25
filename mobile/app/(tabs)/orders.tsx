@@ -6,7 +6,9 @@ import { useAuth } from '../../src/auth/AuthProvider';
 import { Chip, Notice } from '../../src/components/ui';
 import { formatKwacha } from '../../src/domain/money';
 import { availableActions, expiryText, orderPhase, phaseLabel } from '../../src/domain/orders';
+import { showSellingOrders } from '../../src/domain/sellerAccess';
 import { listOrders, type Order } from '../../src/features/orders/api';
+import { useSellingAccess } from '../../src/features/seller/status';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
 
@@ -16,6 +18,7 @@ type Filter = 'all' | 'buying' | 'selling';
 export default function OrdersScreen() {
   const router = useRouter();
   const { userId } = useAuth();
+  const { access } = useSellingAccess();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
   const [error, setError] = useState('');
@@ -38,15 +41,20 @@ export default function OrdersScreen() {
     }, [load]),
   );
 
-  const shown = orders.filter((o) => (filter === 'all' ? true : filter === 'buying' ? o.buyerId === userId : o.buyerId !== userId));
+  // A buyer sees only their purchases: no Selling filter, no "You are selling" labels. Those appear for approved sellers,
+  // for people whose selling was paused (their old orders stay visible), and if a selling order exists.
+  const withSelling = showSellingOrders(access.status, orders.some((o) => o.buyerId !== userId));
+  const shown = orders.filter((o) => (!withSelling || filter === 'all' ? true : filter === 'buying' ? o.buyerId === userId : o.buyerId !== userId));
 
   return (
     <View style={styles.screen}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filters}>
-        <Chip label="All" selected={filter === 'all'} onPress={() => setFilter('all')} />
-        <Chip label="Buying" selected={filter === 'buying'} onPress={() => setFilter('buying')} />
-        <Chip label="Selling" selected={filter === 'selling'} onPress={() => setFilter('selling')} />
-      </ScrollView>
+      {withSelling ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.filters}>
+          <Chip label="All" selected={filter === 'all'} onPress={() => setFilter('all')} />
+          <Chip label="Buying" selected={filter === 'buying'} onPress={() => setFilter('buying')} />
+          <Chip label="Selling" selected={filter === 'selling'} onPress={() => setFilter('selling')} />
+        </ScrollView>
+      ) : null}
 
       {error ? (
         <View style={{ padding: spacing.lg }}>
@@ -64,7 +72,9 @@ export default function OrdersScreen() {
           loading ? null : (
             <View style={styles.empty}>
               <Text style={styles.emptyTitle}>No orders here</Text>
-              <Text style={styles.emptyText}>When you ask to buy something, or someone asks to buy from you, it appears here.</Text>
+              <Text style={styles.emptyText}>
+                {withSelling ? 'When you ask to buy something, or someone asks to buy from you, it appears here.' : 'When you ask to buy something, it appears here.'}
+              </Text>
             </View>
           )
         }
@@ -76,7 +86,7 @@ export default function OrdersScreen() {
           return (
             <Pressable accessibilityRole="button" style={[styles.card, needsYou && styles.needsYou]} onPress={() => router.push(`/order/${item.id}`)}>
               <Text style={styles.ref}>
-                {item.ref} · {role === 'buyer' ? 'You are buying' : 'You are selling'}
+                {withSelling ? `${item.ref} · ${role === 'buyer' ? 'You are buying' : 'You are selling'}` : item.ref}
               </Text>
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.price}>{formatKwacha(item.total)}</Text>

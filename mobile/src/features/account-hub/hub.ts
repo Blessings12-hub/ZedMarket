@@ -4,7 +4,8 @@ import { roleCan, type BusinessRole } from '../../domain/business';
 
 export type HubHref = { pathname: string; params?: Record<string, string> };
 export type HubItem = { key: string; title: string; subtitle?: string; href: HubHref; badge?: string };
-export type HubSection = { key: string; title: string; items: HubItem[] };
+// `note` is a short line shown under the section title, used to explain why a section exists.
+export type HubSection = { key: string; title: string; note?: string; items: HubItem[] };
 
 export type SellerApplicationState = 'draft' | 'submitted' | 'under_review' | 'additional_information_required' | 'approved' | 'rejected' | 'suspended' | 'revoked';
 
@@ -40,7 +41,7 @@ export function purchasesSection(f: HubFacts): HubSection {
     { key: 'orders', title: 'My orders', subtitle: 'Your purchases and their status', href: at('/orders'), badge: count(f.activeBuying, 'open') },
     { key: 'saved', title: 'Saved products', subtitle: 'Items you have saved', href: at('/saved') },
     { key: 'alerts', title: 'Saved searches and alerts', subtitle: 'Get told when a matching item is posted', href: at('/alerts'), badge: count(f.unreadAlerts, 'new') },
-    { key: 'reviews', title: 'My reviews', subtitle: 'Reviews you wrote and reviews about you', href: at('/account/reviews') },
+    { key: 'reviews', title: 'My reviews', subtitle: f.isSeller ? 'Reviews you wrote and reviews about you' : 'Reviews you have written', href: at('/account/reviews') },
   ];
   if (f.paymentsOn) items.push({ key: 'payments', title: 'Payments', subtitle: 'Payments made through ZedMarket', href: at('/payments') });
   return { key: 'purchases', title: 'My purchases', items };
@@ -107,6 +108,8 @@ export function businessSection(f: HubFacts): HubSection | null {
   return { key: 'business', title: `Business centre: ${b.name}`, items };
 }
 
+export const SELL_NOTE = 'ZedMarket is a place to buy first. To sell, apply and our team will verify you. Selling tools appear here once you are approved.';
+
 // Selling is opt-in. A buyer sees an invitation, not the tools. Business registration is separate from selling as a person.
 export function becomeSellerSection(f: HubFacts): HubSection | null {
   const items: HubItem[] = [];
@@ -124,7 +127,8 @@ export function becomeSellerSection(f: HubFacts): HubSection | null {
     items.push({ key: 'register-business', title: 'Register a business', subtitle: 'For shops, companies and organisations', href: at('/business/manage'), badge: 'Verification required' });
   }
   if (items.length === 0) return null;
-  return { key: 'become-seller', title: 'Become a seller', items };
+  const buyerOnly = f.sellerStatus === 'none';
+  return { key: 'become-seller', title: buyerOnly ? 'Sell on ZedMarket' : 'Business', note: buyerOnly ? SELL_NOTE : undefined, items };
 }
 
 export function communicationSection(f: HubFacts): HubSection {
@@ -133,7 +137,7 @@ export function communicationSection(f: HubFacts): HubSection {
     title: 'Communication and support',
     items: [
       { key: 'notifications', title: 'Notifications', subtitle: 'Updates about your orders and account', href: at('/notifications'), badge: count(f.unreadNotifications, 'new') },
-      { key: 'messages', title: 'Messages', subtitle: 'Chats with buyers and sellers', href: at('/(tabs)/messages') },
+      { key: 'messages', title: 'Messages', subtitle: 'Chats about listings and orders', href: at('/(tabs)/messages') },
       { key: 'support', title: 'Help and support', subtitle: 'Ask for help and follow your requests', href: at('/support') },
       { key: 'cases', title: 'Disputes, appeals and reports', subtitle: 'Where each of your cases stands', href: at('/account/cases') },
     ],
@@ -158,14 +162,17 @@ export function staffSection(f: HubFacts): HubSection | null {
   return { key: 'staff', title: 'Staff', items: [{ key: 'staff-tools', title: 'Staff tools', subtitle: 'Only people with a staff role see this', href: at('/admin') }] };
 }
 
+// The page reads top to bottom like a buyer's account: purchases, help, then settings. Everything about selling sits
+// together below that: the selling account (only after the team approves the person), the business centre, and the
+// invitation to apply or register a business. Staff tools come last.
 export function buildHub(f: HubFacts): HubSection[] {
   return [
     purchasesSection(f),
+    communicationSection(f),
+    settingsSection(),
     f.sellerStatus === 'active' ? sellingSection(f) : f.sellerStatus === 'none' ? null : pausedSellingSection(f),
     businessSection(f),
     becomeSellerSection(f),
-    communicationSection(f),
-    settingsSection(),
     staffSection(f),
   ].filter(
     (s): s is HubSection => s !== null,
