@@ -101,6 +101,8 @@ function AuthGate() {
       <Stack.Screen name="business/manage/[id]/team" options={{ title: 'Team' }} />
       <Stack.Screen name="business/manage/[id]/branches" options={{ title: 'Branches' }} />
       <Stack.Screen name="business/manage/[id]/catalogues" options={{ title: 'Catalogues' }} />
+      <Stack.Screen name="seller/listings" options={{ title: 'Listings' }} />
+      <Stack.Screen name="seller/listing/[id]" options={{ title: 'Listing' }} />
       <Stack.Screen name="admin/jobs" options={{ title: 'Your jobs' }} />
       <Stack.Screen name="business/manage/[id]/imports/index" options={{ title: 'Import products' }} />
       <Stack.Screen name="business/manage/[id]/imports/[job]" options={{ title: 'Import' }} />
