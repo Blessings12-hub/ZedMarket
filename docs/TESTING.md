@@ -63,6 +63,14 @@ I broke the locking on purpose (no locks, no locks and no primary key, no lock w
 
 `orders.sql` was tried against 25 deliberately broken copies of the migration. Five survived at first; three of those turned out to be protected twice (a function check and a table rule), and each was caught once both layers were removed. The other two had only broken the first of two identical checks.
 
+## Seller onboarding (migrations 0023 and 0024)
+
+`supabase/tests/seller_onboarding.sql` (run it like the others, against a local or staging database): buyers and applicants cannot publish; rejected, suspended and revoked sellers cannot; approved sellers keep every seller tool; the form, documents (real stored file, type, size, owner) and agreement checks; higher-risk applications need a passed interview and two different officers; nobody can claim, read, open, assign, escalate or approve their own application; support needs two-factor and non-support staff are refused; every private read and document open is audited and refused attempts are not counted as views; unscanned and infected files cannot be opened; suspension pauses listings and keeps history; a different officer must reinstate; history cannot be edited or deleted; retention worker functions are service-role only; no table grants for app users; notices carry no ID details. A mutation check (making `seller_can_publish()` always true) makes it fail, so it can fail. Existing test files each gained one line, `update public.profiles set seller_status = 'active'`, because their fixture users post listings.
+
+App logic tests: `mobile/src/features/seller-onboarding/domain.test.ts` and two new cases in `account-hub/hub.test.ts` (suspended sellers, applicants).
+
+Not tested: the Edge Function (`supabase/functions/verification-document-url`, needs Supabase and Deno), the applicant and staff screens on a phone, real uploads against storage policies, and the malware scanner (does not exist yet).
+
 ## What is not tested yet
 
 - Screens and user journeys, including everything in the Module A and B screens (guest browsing, home rails, filters, sharing, alerts, seller page, checkout, order detail, receipt). Those files typecheck and the plain logic behind them has unit tests (`routes`, `share`, `describeSearch`, `orders`), but they have not been opened on a phone or in a browser. In the sandbox the web build stopped at one missing package (`@expo/vector-icons`), so a full app build has not been confirmed either. There are no end-to-end tests on the app itself. A good next step is to run the web build (`npm run build:web`) in a browser test tool against a staging project.

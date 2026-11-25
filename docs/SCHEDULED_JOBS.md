@@ -42,3 +42,11 @@ To stop one: `select cron.unschedule('zedmarket-orders');`.
 ## Settings you can change
 
 In the `platform_settings` table: `payments.enabled` (0 = off), `payments.expiry_minutes` (30), `rate_limit.payment.max` (5), `order.request_expiry_hours` (48), `order.confirmed_expiry_days` (7), `order.auto_complete_days` (3), `rate_limit.order.max` (10) and `rate_limit.order.window_minutes` (60). Staff voting: `staff_vote.min_eligible` (3), `staff_vote.min_hours` (24), `staff_vote.max_hours` (336), `staff_vote.proposer_roles` (all four staff roles) and `rate_limit.staff_proposal.max` (10 a day). Staff birthdays: `org.timezone` ("Africa/Lusaka"; any name from `pg_timezone_names`, an unknown name falls back to Lusaka), `staff_birthday.message_days` (3), `staff_birthday.max_messages_per_sender` (3), `rate_limit.birthday_profile.max` (5 a day), `rate_limit.birthday_message.max` (30 an hour) and `rate_limit.birthday_report.max` (10 an hour). Bulk import: `import.max_rows_per_file` (1000), `import.max_rows_per_business_day` (3000), `import.batch_rows` (100), `rate_limit.product_import.max` (10 files a day). All are starting values that need a decision, not final choices.
+
+## Verification documents: retention and scanning (migrations 0023 and 0024)
+
+Nothing runs these yet; they need a worker you provide (an Edge Function or script using the service role key):
+
+- **Scan**: for each `verification_documents` row with `scan_status = 'pending'`, scan the stored file and call `verification_record_scan(document, 'clean' | 'infected' | 'failed')`. A file that is not `clean` can never be accepted or opened by staff. **A malware scanner is an external dependency and has not been chosen or connected.**
+- **Purge**: call `verification_documents_due(100)`, delete each returned `bucket`/`path` from storage, then call `verification_mark_deleted(array of ids)`. Dates come from `retention.verification_rejected_days` (30) and `retention.verification_approved_days` (365). Both functions are `service_role` only.
+- Application deadlines: `verification.info_request_days` (14). Escalation deadlines and overdue alerts arrive with the dashboard chunk.
