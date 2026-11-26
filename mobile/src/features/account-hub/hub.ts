@@ -38,15 +38,15 @@ function count(n: number, noun: string): string | undefined {
   return n > 0 ? `${n} ${noun}` : undefined;
 }
 
-export function purchasesSection(f: HubFacts): HubSection {
+// The quick tiles at the top of the hub already open Orders, Saved, Messages, Alerts, Reviews and Help, so none of those
+// is repeated in the list below. This section holds only what the tiles do not.
+export function activitySection(f: HubFacts): HubSection {
   const items: HubItem[] = [
-    { key: 'orders', title: 'My orders', subtitle: 'Your purchases and their status', href: at('/orders'), badge: count(f.activeBuying, 'open') },
-    { key: 'saved', title: 'Saved products', subtitle: 'Items you have saved', href: at('/saved') },
-    { key: 'alerts', title: 'Saved searches and alerts', subtitle: 'Get told when a matching item is posted', href: at('/alerts'), badge: count(f.unreadAlerts, 'new') },
-    { key: 'reviews', title: 'My reviews', subtitle: f.isSeller ? 'Reviews you wrote and reviews about you' : 'Reviews you have written', href: at('/account/reviews') },
+    { key: 'notifications', title: 'Notifications', subtitle: 'Updates about your orders and account', href: at('/notifications'), badge: count(f.unreadNotifications, 'new') },
   ];
   if (f.paymentsOn) items.push({ key: 'payments', title: 'Payments', subtitle: 'Payments made through ZedMarket', href: at('/payments') });
-  return { key: 'purchases', title: 'My purchases', items };
+  items.push({ key: 'cases', title: 'Disputes, appeals and reports', subtitle: 'Where each of your cases stands', href: at('/account/cases') });
+  return { key: 'activity', title: 'Activity', items };
 }
 
 export function sellingSection(f: HubFacts): HubSection {
@@ -60,7 +60,7 @@ export function sellingSection(f: HubFacts): HubSection {
       { key: 'my-products', title: 'My products', subtitle, href: at('/account/listings') },
       { key: 'post', title: 'Post a listing', subtitle: 'Goes to review before it is shown', href: at('/(tabs)/sell') },
       { key: 'coverage-areas', title: 'Where I deliver', subtitle: 'Limit delivery to certain places', href: at('/delivery/areas') },
-      { key: 'selling-orders', title: 'Selling orders', subtitle: 'Requests from buyers', href: at('/orders'), badge: count(f.openRequestsToMe, 'to answer') },
+      { key: 'selling-orders', title: 'Selling orders', subtitle: 'Requests from buyers', href: at('/purchases'), badge: count(f.openRequestsToMe, 'to answer') },
       { key: 'enquiries', title: 'Customer enquiries', subtitle: 'Chats with interested buyers', href: at('/(tabs)/messages') },
       { key: 'seller-verification', title: 'Seller status', subtitle: 'Your approval and agreement', href: at('/verify/seller') },
     ],
@@ -76,7 +76,7 @@ export function pausedSellingSection(f: HubFacts): HubSection {
     items: [
       { key: 'seller-paused', title: `Selling is ${word}`, subtitle: 'See what happened and how to ask for a review', href: at('/verify/seller'), badge: word },
       { key: 'my-products', title: 'My products (history)', subtitle: 'Your listings and their history are kept', href: at('/account/listings') },
-      { key: 'selling-orders', title: 'Orders already placed', subtitle: 'Finish or close orders you already have', href: at('/orders'), badge: count(f.openRequestsToMe, 'to answer') },
+      { key: 'selling-orders', title: 'Orders already placed', subtitle: 'Finish or close orders you already have', href: at('/purchases'), badge: count(f.openRequestsToMe, 'to answer') },
     ],
   };
 }
@@ -133,26 +133,13 @@ export function becomeSellerSection(f: HubFacts): HubSection | null {
   return { key: 'become-seller', title: buyerOnly ? 'Sell on ZedMarket' : 'Business', note: buyerOnly ? SELL_NOTE : undefined, items };
 }
 
-export function communicationSection(f: HubFacts): HubSection {
-  return {
-    key: 'communication',
-    title: 'Communication and support',
-    items: [
-      { key: 'notifications', title: 'Notifications', subtitle: 'Updates about your orders and account', href: at('/notifications'), badge: count(f.unreadNotifications, 'new') },
-      { key: 'messages', title: 'Messages', subtitle: 'Chats about listings and orders', href: at('/(tabs)/messages') },
-      { key: 'support', title: 'Help and support', subtitle: 'Ask for help and follow your requests', href: at('/support') },
-      { key: 'cases', title: 'Disputes, appeals and reports', subtitle: 'Where each of your cases stands', href: at('/account/cases') },
-    ],
-  };
-}
-
 export function settingsSection(): HubSection {
   return {
     key: 'settings',
     title: 'Account settings',
     items: [
       { key: 'personal', title: 'Personal information', subtitle: 'Name and about you', href: at('/profile/edit') },
-      { key: 'addresses', title: 'Saved addresses', subtitle: 'Delivery and pickup places', href: at('/addresses') },
+      { key: 'addresses', title: 'Delivery addresses', subtitle: 'Where your orders are delivered', href: at('/addresses') },
       { key: 'security', title: 'Security and login', subtitle: 'Password, email and other devices', href: at('/settings/security') },
       { key: 'notification-settings', title: 'Notification preferences', subtitle: 'Choose what you are told about', href: at('/notification-settings') },
     ],
@@ -164,21 +151,39 @@ export function staffSection(f: HubFacts): HubSection | null {
   return { key: 'staff', title: 'Staff', items: [{ key: 'staff-tools', title: 'Staff tools', subtitle: 'Only people with a staff role see this', href: at('/admin') }] };
 }
 
-// The page reads top to bottom like a buyer's account: purchases, help, then settings. Everything about selling sits
-// together below that: the selling account (only after the team approves the person), the business centre, and the
-// invitation to apply or register a business. Staff tools come last.
+// One row on the hub that opens the selling and business area. Everything about selling lives behind it, so a buyer's
+// hub stays clean. The row only says what is true: an invitation, an application state, or a live account.
+export function sellEntry(f: HubFacts): HubItem {
+  const href = at('/sell-hub');
+  if (f.sellerStatus === 'active') {
+    const subtitle = f.listings.total === 0 ? 'Post your first listing and manage orders' : `${f.listings.live} live, ${f.listings.waiting} waiting for review`;
+    return { key: 'sell-centre', title: 'Selling and business', subtitle, href, badge: count(f.openRequestsToMe, 'to answer') };
+  }
+  if (f.sellerStatus === 'suspended' || f.sellerStatus === 'revoked') {
+    return { key: 'sell-centre', title: 'Selling account', subtitle: 'See what happened and what you can still do', href, badge: f.sellerStatus };
+  }
+  const hint = f.sellerApplication ? APPLICATION_HINT[f.sellerApplication] : undefined;
+  return { key: 'sell-centre', title: 'Sell on ZedMarket', subtitle: hint?.subtitle ?? 'Apply to sell, or register a business', href, badge: hint?.badge };
+}
+
+// The buyer's hub: activity, settings, one door to selling, then staff tools. No selling or business tools sit here.
 export function buildHub(f: HubFacts): HubSection[] {
   return [
-    purchasesSection(f),
-    communicationSection(f),
+    activitySection(f),
     settingsSection(),
+    { key: 'sell', title: 'Selling', items: [sellEntry(f)] },
+    staffSection(f),
+  ].filter((s): s is HubSection => s !== null);
+}
+
+// The selling and business area: the selling account (only after the team approves the person), the business centre, and
+// the invitation to apply or register a business.
+export function buildSellCentre(f: HubFacts): HubSection[] {
+  return [
     f.sellerStatus === 'active' ? sellingSection(f) : f.sellerStatus === 'none' ? null : pausedSellingSection(f),
     businessSection(f),
     becomeSellerSection(f),
-    staffSection(f),
-  ].filter(
-    (s): s is HubSection => s !== null,
-  );
+  ].filter((s): s is HubSection => s !== null);
 }
 
 // The switcher offers "personal" always, plus one entry per business the person belongs to.

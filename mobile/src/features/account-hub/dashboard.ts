@@ -15,18 +15,15 @@ export function badgeText(n: number): string | undefined {
   return n > 9 ? '9+' : String(Math.floor(n));
 }
 
-// Six tiles, the same shape for everyone. Approved sellers swap "Reviews" for their listings and see the requests they
-// must answer on the Orders tile. Nobody else sees a selling tile.
-export function quickTiles(f: Pick<HubFacts, 'sellerStatus' | 'activeBuying' | 'openRequestsToMe' | 'unreadAlerts' | 'listings'>): Tile[] {
-  const seller = f.sellerStatus === 'active';
+// Six tiles, the same for everyone: this is the buyer's hub. Selling lives behind its own door ("Selling" below the
+// list), so no selling tile or seller count appears here.
+export function quickTiles(f: Pick<HubFacts, 'activeBuying' | 'unreadAlerts'>): Tile[] {
   return [
-    { key: 'orders', label: 'Orders', href: at('/orders'), count: f.activeBuying + (seller ? f.openRequestsToMe : 0) },
+    { key: 'orders', label: 'Orders', href: at('/purchases'), count: f.activeBuying },
     { key: 'saved', label: 'Saved', href: at('/saved'), count: 0 },
     { key: 'messages', label: 'Messages', href: at('/(tabs)/messages'), count: 0 },
     { key: 'alerts', label: 'Alerts', href: at('/alerts'), count: f.unreadAlerts },
-    seller
-      ? { key: 'listings', label: 'My listings', href: at('/account/listings'), count: f.listings.waiting }
-      : { key: 'reviews', label: 'Reviews', href: at('/account/reviews'), count: 0 },
+    { key: 'reviews', label: 'Reviews', href: at('/account/reviews'), count: 0 },
     { key: 'support', label: 'Help', href: at('/support'), count: 0 },
   ];
 }

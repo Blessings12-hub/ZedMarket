@@ -3,7 +3,6 @@ import test from 'node:test';
 
 import { badgeText, orderStrip, profileNudge, quickTiles, sellingBanner, STRIP_STEPS, type StripOrder } from './dashboard';
 
-const facts = { sellerStatus: 'none' as const, activeBuying: 0, openRequestsToMe: 0, unreadAlerts: 0, listings: { live: 0, waiting: 0, total: 0 } };
 const order = (over: Partial<StripOrder> = {}): StripOrder => ({ id: 'o1', title: 'Phone', status: 'requested', cancelKind: null, handedOverAt: null, fulfilment: 'collection', ...over });
 
 test('badges are hidden at zero, exact up to nine, and 9+ beyond', () => {
@@ -15,27 +14,16 @@ test('badges are hidden at zero, exact up to nine, and 9+ beyond', () => {
   assert.equal(badgeText(10), '9+');
 });
 
-test('a buyer gets six tiles and no selling tile', () => {
-  const t = quickTiles({ ...facts, activeBuying: 2, unreadAlerts: 4 });
+test('the hub always has the same six buyer tiles, and no selling tile or seller count', () => {
+  const t = quickTiles({ activeBuying: 2, unreadAlerts: 4 });
   assert.deepEqual(t.map((x) => x.key), ['orders', 'saved', 'messages', 'alerts', 'reviews', 'support']);
   assert.equal(t.find((x) => x.key === 'orders')?.count, 2);
   assert.equal(t.find((x) => x.key === 'alerts')?.count, 4);
   assert.ok(!t.some((x) => x.key === 'listings'));
 });
 
-test('an approved seller sees listings, and requests to answer count on Orders', () => {
-  const t = quickTiles({ ...facts, sellerStatus: 'active', activeBuying: 1, openRequestsToMe: 3, listings: { live: 5, waiting: 2, total: 7 } });
-  assert.equal(t.find((x) => x.key === 'orders')?.count, 4);
-  assert.equal(t.find((x) => x.key === 'listings')?.count, 2);
-  assert.ok(!t.some((x) => x.key === 'reviews'));
-});
-
-test('suspended, revoked and ordinary people never get a selling tile or a seller count', () => {
-  for (const s of ['none', 'suspended', 'revoked'] as const) {
-    const t = quickTiles({ ...facts, sellerStatus: s, openRequestsToMe: 5, listings: { live: 1, waiting: 1, total: 2 } });
-    assert.ok(!t.some((x) => x.key === 'listings'), s);
-    assert.equal(t.find((x) => x.key === 'orders')?.count, 0, s);
-  }
+test('Orders opens a screen with a back arrow, not the hidden Orders tab', () => {
+  assert.equal(quickTiles({ activeBuying: 0, unreadAlerts: 0 }).find((x) => x.key === 'orders')?.href.pathname, '/purchases');
 });
 
 test('the strip lists open purchases and skips finished, cancelled, declined and expired ones', () => {
