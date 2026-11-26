@@ -72,6 +72,8 @@ insert into auth.users (id, email, raw_user_meta_data, email_confirmed_at) value
 insert into public.businesses (id, owner_id, name, slug, description) values
   ('20000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 'Olive Electronics', 'olive-electronics', 'Phones and chargers'),
   ('20000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000002', 'Other Shop', 'other-shop', 'Not ours');
+-- Business listings go live only for verified businesses (migration 0027); these fixtures are verified.
+update public.businesses set publish_state = 'active', registration_kind = 'registered';
 -- The owner is added as a member by a trigger. The manager and staff are added directly (setup only).
 insert into public.business_members (business_id, user_id, role) values
   ('20000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000b', 'manager'),
