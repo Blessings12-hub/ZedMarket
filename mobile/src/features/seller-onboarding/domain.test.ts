@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { canEdit, emptyForm, missingBeforeSend, requiredDocs, staffActions, type Form } from './domain';
+import { canEdit, canStartOver, emptyForm, formOpen, isFinished, missingBeforeSend, requiredDocs, showsSavedAnswers, staffActions, STATUS_HELP, STATUS_LABEL, type Form } from './domain';
 
 const full = (): Form => ({
   ...emptyForm(), legal_name: 'Anna Mwansa', nationality: 'Zambian', is_adult: true, id_number: '123456/10/1',
@@ -38,4 +38,30 @@ test('reviewer actions follow the state', () => {
   assert.ok(staffActions('under_review', { mine: true, assigned: true }).includes('approve'));
   assert.deepEqual(staffActions('rejected', { mine: true, assigned: true }), []);
   assert.deepEqual(staffActions('suspended', { mine: false, assigned: false }), ['reinstate']);
+});
+
+test('after a rejected, withdrawn or deleted application the person can start a new one', () => {
+  for (const s of ['rejected', 'closed'] as const) {
+    assert.equal(canStartOver(s), true, s);
+    assert.equal(formOpen(s, 'none'), true, s);
+    assert.equal(showsSavedAnswers(s), false, `${s} must not refill the new form`);
+  }
+  assert.equal(formOpen(null, 'none'), true);
+  assert.equal(formOpen('draft', 'none'), true);
+});
+
+test('the form stays closed while an application is being reviewed or a seller is approved, paused or removed', () => {
+  for (const s of ['submitted', 'under_review', 'additional_information_required', 'approved', 'suspended', 'revoked'] as const) {
+    assert.equal(formOpen(s, 'none'), false, s);
+  }
+  // an approved, suspended or revoked seller never gets the form, whatever the last application says
+  for (const st of ['active', 'suspended', 'revoked']) assert.equal(formOpen(null, st), false, st);
+});
+
+test('a deleted selling account is a finished state with its own words', () => {
+  assert.equal(isFinished('closed'), true);
+  assert.equal(STATUS_LABEL.closed, 'Closed');
+  assert.match(STATUS_HELP.closed, /apply again/i);
+  assert.match(STATUS_HELP.closed, /from the start/i);
+  assert.deepEqual(staffActions('closed', { mine: true, assigned: true }), []);
 });

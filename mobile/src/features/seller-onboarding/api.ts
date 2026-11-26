@@ -25,6 +25,8 @@ export const saveApplication = (f: Partial<Form>) =>
 export const acceptAgreement = (version: number) => rpc<void>('seller_agreement_accept', { p_version: version });
 export const submitApplication = () => rpc<void>('seller_application_submit');
 export const withdrawApplication = () => rpc<void>('seller_application_withdraw');
+// Deletes my selling account. Only an approved seller can; the database refuses while orders are open.
+export const closeSellerAccount = (reason?: string) => rpc<void>('seller_account_close', { p_reason: reason ?? null });
 export const respondToRequest = (id: string, text: string) => rpc<void>('seller_application_respond', { p_request: id, p_response: text });
 
 // Upload into the person's own folder of the private bucket, then register it so the database checks the real file.
@@ -44,9 +46,9 @@ export async function uploadDocument(userId: string, appId: string, kind: string
 export async function fetchOptions() {
   const [c, l] = await Promise.all([
     supabase.from('categories').select('id, name').order('name'),
-    supabase.from('locations').select('id, area, city').order('city'),
+    supabase.from('locations').select('id, area, town').order('town').order('area', { nullsFirst: true }),
   ]);
-  return { categories: (c.data ?? []) as { id: number; name: string }[], locations: (l.data ?? []) as { id: number; area: string; city: string }[] };
+  return { categories: (c.data ?? []) as { id: number; name: string }[], locations: (l.data ?? []) as { id: number; area: string | null; town: string }[] };
 }
 
 // ----- staff -----

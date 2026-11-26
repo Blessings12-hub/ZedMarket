@@ -4,7 +4,7 @@
 
 export type AppStatus =
   | 'draft' | 'submitted' | 'under_review' | 'additional_information_required'
-  | 'approved' | 'rejected' | 'suspended' | 'revoked';
+  | 'approved' | 'rejected' | 'suspended' | 'revoked' | 'closed';
 
 export const STATUS_LABEL: Record<AppStatus, string> = {
   draft: 'Draft',
@@ -15,6 +15,7 @@ export const STATUS_LABEL: Record<AppStatus, string> = {
   rejected: 'Not approved',
   suspended: 'Suspended',
   revoked: 'Revoked',
+  closed: 'Closed',
 };
 
 export const STATUS_HELP: Record<AppStatus, string> = {
@@ -26,6 +27,7 @@ export const STATUS_HELP: Record<AppStatus, string> = {
   rejected: 'This application was not approved. You can read the reason and apply again after the waiting period.',
   suspended: 'Selling is switched off. Your listings and history are kept.',
   revoked: 'Selling approval was withdrawn. Your history is kept.',
+  closed: 'You deleted your selling account. To sell again, apply again: the team verifies you from the start.',
 };
 
 export const DOC_LABEL: Record<string, string> = {
@@ -100,7 +102,13 @@ export function missingBeforeSend(f: Form, o: { agreementAccepted: boolean; docu
 }
 
 export const canEdit = (s: AppStatus | null): boolean => s === null || s === 'draft';
-export const isFinished = (s: AppStatus): boolean => s === 'rejected' || s === 'revoked';
+export const isFinished = (s: AppStatus): boolean => s === 'rejected' || s === 'revoked' || s === 'closed';
+
+// A rejected, withdrawn or deleted application is over. The person may start a new one (a rejected one only after the
+// waiting period, which the database enforces). The new application starts empty: nothing is carried over.
+export const canStartOver = (s: AppStatus | null): boolean => s === 'rejected' || s === 'closed';
+export const formOpen = (s: AppStatus | null, sellerStatus: string): boolean => sellerStatus === 'none' && (canEdit(s) || canStartOver(s));
+export const showsSavedAnswers = (s: AppStatus | null): boolean => s !== null && !canStartOver(s);
 
 // What a reviewer may do from the detail screen. The database refuses the rest (own application, no claim, second approver).
 export type Action = 'claim' | 'request_info' | 'interview' | 'escalate' | 'approve' | 'reject' | 'suspend' | 'reinstate';

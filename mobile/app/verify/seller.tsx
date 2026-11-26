@@ -1,12 +1,15 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
+import { DangerConfirm } from '../../src/components/DangerConfirm';
 import { Button, Chip, Field, Notice, SectionTitle } from '../../src/components/ui';
+import { SELLER_CLOSE } from '../../src/domain/closeAccount';
+import { refreshSellingAccess } from '../../src/features/seller/status';
 import * as api from '../../src/features/seller-onboarding/api';
 import {
-  canEdit, DECLARATIONS, DOC_LABEL, EXPERIENCE, emptyForm, missingBeforeSend, requiredDocs, SOURCING, STATUS_HELP, STATUS_LABEL,
+  DECLARATIONS, DOC_LABEL, EXPERIENCE, emptyForm, formOpen, missingBeforeSend, requiredDocs, showsSavedAnswers, SOURCING, STATUS_HELP, STATUS_LABEL,
   type AppStatus, type Form,
 } from '../../src/features/seller-onboarding/domain';
 import { friendlyError } from '../../src/lib/errors';
@@ -15,6 +18,7 @@ import { colors, radius, spacing } from '../../src/theme';
 // Individual seller application. Anyone can open it; nobody can sell until support approves.
 export default function SellerApplication() {
   const { userId } = useAuth();
+  const router = useRouter();
   const [mine, setMine] = useState<api.MyApplication | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
   const [options, setOptions] = useState<Awaited<ReturnType<typeof api.fetchOptions>> | null>(null);
@@ -31,7 +35,7 @@ export default function SellerApplication() {
       setOptions(o);
       setAgreement(a ?? null);
       const x = m.application;
-      if (x) {
+      if (x && showsSavedAnswers(x.status as AppStatus)) {
         setForm({
           ...emptyForm(), legal_name: x.legal_name ?? '', nationality: x.nationality ?? '', is_adult: !!x.is_adult, id_type: x.id_type ?? 'nrc',
           id_number: x.id_number ?? '', residential_address: x.residential_address ?? '', selling_location_id: x.selling_location_id ?? null,
@@ -40,6 +44,8 @@ export default function SellerApplication() {
           expected_catalogue_size: x.expected_catalogue_size ? String(x.expected_catalogue_size) : '', returns_arrangements: x.returns_arrangements ?? '',
           customer_service_arrangements: x.customer_service_arrangements ?? '', declarations: x.declarations ?? {},
         });
+      } else {
+        setForm(emptyForm());
       }
       setError('');
     } catch (e) {
@@ -69,13 +75,36 @@ export default function SellerApplication() {
 
   const app = mine.application;
   const status = (app?.status ?? null) as AppStatus | null;
-  const editable = canEdit(status) && mine.seller_status === 'none';
+  // The form is open for a first application, a draft, or a fresh start after a rejected, withdrawn or deleted one.
+  const editable = formOpen(status, mine.seller_status);
   const kinds = mine.documents.filter((d) => d.scan !== 'infected').map((d) => d.kind);
   const missing = missingBeforeSend(form, { agreementAccepted: !!app?.agreement_accepted, documentKinds: kinds, contactVerified: true });
   const openRequests = mine.requests.filter((r) => r.status === 'open');
 
+  async function closeAccount() {
+    setBusy(true);
+    setError('');
+    try {
+      await api.closeSellerAccount();
+      if (userId) await refreshSellingAccess(userId);
+      router.replace('/(tabs)/account');
+    } catch (e) {
+      setError(friendlyError(e));
+      setBusy(false);
+    }
+  }
+
   if (mine.seller_status === 'active') {
-    return <View style={styles.center}><Text style={styles.title}>You are an approved seller</Text><Text style={styles.text}>Your selling tools are in the Account tab.</Text></View>;
+    return (
+      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.title}>You are an approved seller</Text>
+          <Text style={styles.text}>Your selling tools are in the Account tab.</Text>
+        </View>
+        <SectionTitle>{SELLER_CLOSE.heading}</SectionTitle>
+        <DangerConfirm copy={SELLER_CLOSE} busy={busy} error={error} onConfirm={closeAccount} />
+      </ScrollView>
+    );
   }
 
   return (
@@ -121,7 +150,7 @@ export default function SellerApplication() {
           <SectionTitle>Where you sell from</SectionTitle>
           <View style={styles.chips}>
             {(options?.locations ?? []).slice(0, 60).map((l) => (
-              <Chip key={l.id} label={`${l.area}, ${l.city}`} selected={form.selling_location_id === l.id} onPress={() => set('selling_location_id', l.id)} />
+              <Chip key={l.id} label={l.area ? `${l.area}, ${l.town}` : l.town} selected={form.selling_location_id === l.id} onPress={() => set('selling_location_id', l.id)} />
             ))}
           </View>
 
@@ -157,7 +186,7 @@ export default function SellerApplication() {
         </>
       ) : null}
 
-      {app && editable ? (
+      {app && status === 'draft' && editable ? (
         <>
           <SectionTitle>Documents</SectionTitle>
           {requiredDocs(form.id_type).map((k) => {
