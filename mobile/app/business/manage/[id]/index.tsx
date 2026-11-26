@@ -1,7 +1,7 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useAuth } from '../../../../src/auth/AuthProvider';
 import { DangerConfirm } from '../../../../src/components/DangerConfirm';
@@ -9,6 +9,9 @@ import { Button, Notice, SectionTitle } from '../../../../src/components/ui';
 import { ROLE_EXPLAINED, ROLE_LABELS, roleCan } from '../../../../src/domain/business';
 import { BUSINESS_CLOSE } from '../../../../src/domain/closeAccount';
 import { closeBusiness } from '../../../../src/features/business/api';
+import { attentionTiles, salesSummary, setupChecklist } from '../../../../src/features/business/dashboard';
+import { fetchBusinessDashboard, type BusinessDashboardData } from '../../../../src/features/business/dashboardApi';
+import { AttentionTiles, SalesCard, SetupChecklist } from '../../../../src/features/business/dashboardView';
 import { useBusinessAccess } from '../../../../src/features/business/useAccess';
 import { refreshSellingAccess } from '../../../../src/features/seller/status';
 import { friendlyError } from '../../../../src/lib/errors';
@@ -21,6 +24,7 @@ export default function BusinessDashboard() {
   const { userId } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [dash, setDash] = useState<BusinessDashboardData | null>(null);
 
   async function deleteBusiness() {
     setBusy(true);
@@ -34,6 +38,14 @@ export default function BusinessDashboard() {
       setBusy(false);
     }
   }
+  useFocusEffect(
+    useCallback(() => {
+      if (!role || !id) return undefined;
+      let cancelled = false;
+      void fetchBusinessDashboard(String(id), slug, role).then((d) => { if (!cancelled) setDash(d); }).catch((e) => console.warn('[business dashboard]', e));
+      return () => { cancelled = true; };
+    }, [role, id, slug]),
+  );
   const go = (path: string) => router.push({ pathname: path as any, params: { id } });
 
   if (loading) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
@@ -43,6 +55,33 @@ export default function BusinessDashboard() {
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title}>{name}</Text>
       <Text style={styles.text}>You are {ROLE_LABELS[role].toLowerCase()}. {ROLE_EXPLAINED[role]}</Text>
+
+      {dash ? (
+        <>
+          {dash.failed.length > 0 ? <Notice tone="warning">{`Some numbers could not be loaded (${dash.failed.join(', ')}). Open the screen again to retry.`}</Notice> : null}
+          <SectionTitle>Today</SectionTitle>
+          <AttentionTiles tiles={attentionTiles(role, dash.facts)} onOpen={(t) => go(t.href === 'orders' ? '/business/manage/[id]/orders' : '/business/manage/[id]/inventory')} />
+          {(() => {
+            const c = setupChecklist(role, dash.setup);
+            if (c.complete) return null;
+            return (
+              <SetupChecklist
+                {...c}
+                onOpen={(s) => {
+                  if (s.key === 'branch') go('/business/manage/[id]/branches');
+                  else if (s.key === 'catalogue') go('/business/manage/[id]/catalogues');
+                  else if (s.key === 'products') router.push('/(tabs)/sell');
+                  else router.push('/verify/business');
+                }}
+              />
+            );
+          })()}
+          {(() => {
+            const sales = salesSummary(role, dash.analytics);
+            return sales ? <SalesCard sales={sales} onOpen={() => go('/business/manage/[id]/analytics')} /> : null;
+          })()}
+        </>
+      ) : <ActivityIndicator color={colors.primary} />}
 
       <SectionTitle>Every day</SectionTitle>
       {roleCan(role, 'manage_orders') ? <Button title="Orders" onPress={() => go('/business/manage/[id]/orders')} /> : null}
