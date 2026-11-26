@@ -75,6 +75,7 @@ export default function TrustHome() {
       {reader ? (
         <>
           <SectionTitle>Seller and business verification</SectionTitle>
+          <Button title="Workload, deadlines and document access" onPress={() => router.push('/trust/workload')} />
           <Button title="Seller applications and queues" onPress={() => router.push('/trust/seller-applications')} />
           <Button title="Business applications" onPress={() => router.push('/trust/business-applications')} />
 
