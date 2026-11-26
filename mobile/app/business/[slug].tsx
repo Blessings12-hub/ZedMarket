@@ -15,6 +15,7 @@ import {
   type StorefrontCatalogue,
   type StorefrontListing,
 } from '../../src/features/business/api';
+import { registrationBadge } from '../../src/features/business-onboarding/domain';
 import type { ListingSummary } from '../../src/features/listings/types';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
@@ -109,7 +110,7 @@ export default function BusinessStorefront() {
     <View style={styles.head}>
       <View style={styles.card}>
         <Text style={styles.name}>{shop.name}</Text>
-        {shop.verified ? <Text style={styles.verified}>Registration checked by ZedMarket staff</Text> : <Text style={styles.meta}>Registration not checked yet</Text>}
+        {shop.verified ? <Text style={styles.verified}>{registrationBadge(shop.registrationKind, true)} · checked by ZedMarket staff</Text> : <Text style={styles.meta}>Not verified yet</Text>}
         {shop.description ? <Text style={styles.text}>{shop.description}</Text> : null}
         <Text style={styles.meta}>{[shop.area, shop.town].filter(Boolean).join(', ') || 'Zambia'}</Text>
         {shop.address ? <Text style={styles.meta}>{shop.address}</Text> : null}
