@@ -76,6 +76,7 @@ export default function TrustHome() {
         <>
           <SectionTitle>Seller and business verification</SectionTitle>
           <Button title="Seller applications and queues" onPress={() => router.push('/trust/seller-applications')} />
+          <Button title="Business applications" onPress={() => router.push('/trust/business-applications')} />
 
           <SectionTitle>Identity and business checks (earlier flow)</SectionTitle>
           <Button title="Pending applications" onPress={() => router.push({ pathname: '/trust/applications', params: { status: 'pending' } })} />
