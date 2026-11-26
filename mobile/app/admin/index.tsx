@@ -6,7 +6,9 @@ import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
 import { ROLE_LABELS, cleanTotpCode, staffAccessStep, type AdminRole, type StaffStep } from '../../src/domain/admin';
 import { staffMenu } from '../../src/domain/staffMenu';
-import { confirmCode, fetchAssurance, fetchMyRoles, startEnrolment, verifiedFactorId } from '../../src/features/admin/api';
+import { confirmCode, fetchAssurance, fetchMyRoles, fetchStaffCounts, startEnrolment, verifiedFactorId } from '../../src/features/admin/api';
+import { StaffBoardView } from '../../src/features/admin/boardView';
+import { staffBoard, type QueueKey, type StaffCounts } from '../../src/features/admin/dashboard';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, spacing } from '../../src/theme';
 
@@ -21,6 +23,8 @@ export default function AdminHome() {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [counts, setCounts] = useState<StaffCounts | null>(null);
+  const [failed, setFailed] = useState<QueueKey[]>([]);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -28,7 +32,14 @@ export default function AdminHome() {
       const myRoles = await fetchMyRoles(userId);
       const level = await fetchAssurance();
       setRoles(myRoles);
-      setStep(staffAccessStep(myRoles, level.currentLevel, level.nextLevel));
+      const next = staffAccessStep(myRoles, level.currentLevel, level.nextLevel);
+      setStep(next);
+      // Counts only after two-factor is done; before that the database would refuse them anyway.
+      if (next === 'ready') {
+        const board = await fetchStaffCounts(myRoles);
+        setCounts(board.counts);
+        setFailed(board.failed);
+      }
       if (level.nextLevel === 'aal2') setFactorId(await verifiedFactorId());
       setError('');
     } catch (e) {
@@ -144,6 +155,9 @@ export default function AdminHome() {
           ))}
         </View>
       </View>
+
+      {failed.length > 0 ? <Notice tone="warning">{`Some counts could not be loaded (${failed.join(', ')}). Pull the screen again or open the queue directly.`}</Notice> : null}
+      {counts ? <StaffBoardView board={staffBoard(roles, counts, Date.now())} onOpen={(href) => router.push(href as never)} /> : error ? null : <ActivityIndicator color={colors.primary} />}
 
       {staffMenu(roles).map((section) => (
         <View key={section.title} style={styles.section}>

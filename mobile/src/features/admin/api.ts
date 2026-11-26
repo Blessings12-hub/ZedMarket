@@ -1,7 +1,9 @@
-import type { AdminRole } from '../../domain/admin';
+import { canHandleReports, canModerate, canReviewApplications, canSupport, type AdminRole } from '../../domain/admin';
 import type { ItemCondition } from '../../domain/listing';
 import { supabase } from '../../lib/supabase';
 import { toMessage, type Message } from '../chat/api';
+import { fetchQueue } from '../seller-onboarding/api';
+import type { QueueFact, QueueKey, StaffCounts } from './dashboard';
 
 export type ReportTarget = 'listing' | 'user' | 'message' | 'business' | 'review';
 export type ReportStatus = 'open' | 'in_review' | 'actioned' | 'dismissed';
@@ -508,4 +510,56 @@ export async function fetchAudit(): Promise<AuditEntry[]> {
     targetId: a.target_id as string | null,
     createdAt: a.created_at as string,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Needs-attention counts for the Staff tools board
+// ---------------------------------------------------------------------------
+
+
+async function headCount(table: string, filter: (q: any) => any): Promise<QueueFact> {
+  const { data, error, count } = await filter(supabase.from(table).select('created_at', { count: 'exact' })).order('created_at', { ascending: true }).limit(1);
+  if (error) throw error;
+  return { count: count ?? 0, oldest: (data as { created_at: string }[] | null)?.[0]?.created_at ?? null };
+}
+
+// One count per queue the person's roles may work. A queue that fails is reported in `failed`, never shown as zero.
+export async function fetchStaffCounts(roles: AdminRole[]): Promise<{ counts: StaffCounts; failed: QueueKey[] }> {
+  const jobs: [QueueKey, () => Promise<QueueFact>][] = [];
+  if (canReviewApplications(roles)) {
+    jobs.push(['applications', async () => {
+      const rows = await fetchQueue('sellers');
+      const dates = rows.map((r) => r.submitted_at).filter((d): d is string => !!d).sort();
+      return { count: rows.length, oldest: dates[0] ?? null, overdue: rows.filter((r) => r.overdue).length };
+    }]);
+  }
+  if (canModerate(roles)) {
+    jobs.push(['listings', () => headCount('listings', (q) => q.eq('moderation_status', 'pending').eq('status', 'active'))]);
+    jobs.push(['appeals', () => headCount('appeals', (q) => q.eq('status', 'open'))]);
+    jobs.push(['flags', () => headCount('risk_flags', (q) => q.eq('status', 'open'))]);
+  }
+  if (canHandleReports(roles)) jobs.push(['reports', () => headCount('reports', (q) => q.in('status', ['open', 'in_review']))]);
+  if (canSupport(roles)) {
+    jobs.push(['disputes', () => headCount('disputes', (q) => q.in('status', ['open', 'awaiting_info']))]);
+    jobs.push(['verifications', async () => {
+      const [a, b] = await Promise.all([
+        headCount('identity_verifications', (q) => q.eq('status', 'pending')),
+        headCount('business_verifications', (q) => q.eq('status', 'pending')),
+      ]);
+      const dates = [a.oldest, b.oldest].filter((d): d is string => !!d).sort();
+      return { count: a.count + b.count, oldest: dates[0] ?? null };
+    }]);
+  }
+  const results = await Promise.allSettled(jobs.map(([, run]) => run()));
+  const counts: StaffCounts = {};
+  const failed: QueueKey[] = [];
+  results.forEach((r, i) => {
+    const key = jobs[i]![0];
+    if (r.status === 'fulfilled') counts[key] = r.value;
+    else {
+      failed.push(key);
+      console.warn(`[staff board] ${key} could not be counted`, r.reason);
+    }
+  });
+  return { counts, failed };
 }
