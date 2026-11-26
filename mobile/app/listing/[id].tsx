@@ -1,9 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { ListingRail } from '../../src/components/ListingRail';
+import { RetryImage } from '../../src/components/RetryImage';
 import { Button, Notice, SectionTitle, VerifiedBadge } from '../../src/components/ui';
 import { deliverySummary } from '../../src/domain/locations';
 import { fetchListingDeliveryInfo } from '../../src/features/locations/api';
@@ -182,7 +183,7 @@ export default function ListingScreen() {
       {listing.imagePaths.length > 0 ? (
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
           {listing.imagePaths.map((path) => (
-            <Image key={path} source={{ uri: listingImageUrl(path) }} style={styles.photo} resizeMode="cover" />
+            <RetryImage key={path} source={{ uri: listingImageUrl(path) }} style={styles.photo} resizeMode="cover" />
           ))}
         </ScrollView>
       ) : (

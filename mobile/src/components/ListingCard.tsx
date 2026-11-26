@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { conditionLabel } from '../domain/listing';
 import { formatKwacha } from '../domain/money';
 import type { ListingSummary } from '../features/listings/types';
 import { listingImageUrl } from '../lib/supabase';
 import { colors, radius, spacing } from '../theme';
+import { RetryImage } from './RetryImage';
 import { VerifiedBadge } from './ui';
 
 export function ListingCard({ listing, width }: { listing: ListingSummary; width?: number }) {
@@ -19,7 +20,7 @@ export function ListingCard({ listing, width }: { listing: ListingSummary; width
       onPress={() => router.push(`/listing/${listing.id}`)}
     >
       {listing.imagePath ? (
-        <Image source={{ uri: listingImageUrl(listing.imagePath) }} style={styles.image} resizeMode="cover" />
+        <RetryImage source={{ uri: listingImageUrl(listing.imagePath) }} style={styles.image} resizeMode="cover" />
       ) : (
         <View style={[styles.image, styles.noImage]} />
       )}

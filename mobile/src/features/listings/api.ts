@@ -5,6 +5,7 @@ import { MAX_PHOTOS, type ItemCondition } from '../../domain/listing';
 import { parsePrice } from '../../domain/money';
 import { cleanSearchTerm } from '../../domain/search';
 import { supabase } from '../../lib/supabase';
+import { readPhoto, uploadObject } from '../../lib/storage';
 import { isMissingFunction } from './area';
 import type {
   Category,
@@ -382,7 +383,7 @@ export async function setFavourite(listingId: string, saved: boolean): Promise<v
 export async function fetchFavourites(): Promise<ListingSummary[]> {
   const { data, error } = await supabase
     .from('favourites')
-    .select(`created_at, listing:listings!inner(${SUMMARY_COLUMNS})`)
+    .select(`created_at, listing:listings!favourites_listing_id_fkey!inner(${SUMMARY_COLUMNS})`)
     .order('created_at', { ascending: false });
   if (error) throw error;
   const rows = data as unknown as { listing: RawListing }[];
@@ -503,14 +504,10 @@ export async function publishListing(input: NewListing): Promise<PublishResult> 
       const photo = input.photos[i];
       if (!photo) continue;
 
-      const body = await (await fetch(photo.uri)).arrayBuffer();
+      const body = await readPhoto(photo.uri);
       const path = `${input.userId}/${listingId}/${i}.jpg`;
 
-      const upload = await supabase.storage.from('listing-images').upload(path, body, {
-        contentType: 'image/jpeg',
-        upsert: false,
-      });
-      if (upload.error) throw upload.error;
+      await uploadObject('listing-images', path, body);
       uploaded.push(path);
 
       const row = await supabase.from('listing_images').insert({ listing_id: listingId, storage_path: path, position: i });
