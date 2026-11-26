@@ -16,7 +16,41 @@ export const SELLER_CLOSE: CloseCopy = {
   ],
   confirm: 'Yes, delete my selling account',
   keep: 'Keep my selling account',
-  done: 'Your selling account was deleted.',
+  done: 'Your selling account was closed. You can keep buying on ZedMarket, and your orders, reviews and records are kept.',
+};
+
+// A suspended seller can close the selling account instead of waiting. The record of the suspension is kept.
+export const SELLER_CLOSE_SUSPENDED: CloseCopy = {
+  heading: 'Close your selling account',
+  button: 'Close my selling account',
+  intro: 'Selling is switched off by our team. You can close your selling account instead of waiting. This cannot be undone.',
+  points: [
+    'Your listings stay off sale and are taken down.',
+    'You go back to a buyer account. Your purchases, messages and reviews stay.',
+    'To sell again you must apply again: a new application, new documents and a new agreement. Our team verifies you from the start.',
+    'Our team keeps the record of the suspension.',
+    'You cannot do this while you have open orders. Finish or cancel them first.',
+  ],
+  confirm: 'Yes, close my selling account',
+  keep: 'Keep it as it is',
+  done: 'Your selling account was closed. You can keep buying on ZedMarket, and your orders, reviews and records are kept.',
+};
+
+// A revoked seller can close too. Selling stays revoked: that was the team's decision and closing does not undo it.
+export const SELLER_CLOSE_REVOKED: CloseCopy = {
+  heading: 'Close your selling account',
+  button: 'Close my selling account',
+  intro: 'Selling approval was withdrawn by our team. You can close your selling account to take your listings down. Selling stays switched off. This cannot be undone.',
+  points: [
+    'Your listings are taken off sale.',
+    'Your buyer account stays. Your purchases, messages and reviews stay.',
+    'Selling stays switched off. To ask for a review, contact support.',
+    'Your verification documents are deleted after the retention period. Our team keeps the record of what happened.',
+    'You cannot do this while you have open orders. Finish or cancel them first.',
+  ],
+  confirm: 'Yes, close my selling account',
+  keep: 'Keep it as it is',
+  done: 'Your selling account was closed. Selling stays switched off. You can keep buying on ZedMarket.',
 };
 
 export const BUSINESS_CLOSE: CloseCopy = {

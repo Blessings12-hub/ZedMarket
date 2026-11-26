@@ -78,23 +78,64 @@ export const emptyForm = (): Form => ({
   expected_catalogue_size: '', returns_arrangements: '', customer_service_arrangements: '', declarations: {},
 });
 
+// The limits below are the database's own limits (seller_applications and seller_application_private). The app checks
+// them first so a person is told which answer is wrong without a round trip; the database still checks again.
+export const LIMITS = {
+  legal_name: { min: 3, max: 120 },
+  nationality: { min: 2, max: 60 },
+  id_number: { min: 5, max: 30 },
+  residential_address: { min: 10, max: 300 },
+  sourcing_info: { min: 10, max: 1000 },
+  experience_info: { min: 1, max: 1000 },
+  returns_arrangements: { min: 10, max: 1000 },
+  customer_service_arrangements: { min: 10, max: 1000 },
+  expected_catalogue_size: { min: 1, max: 100000 },
+} as const;
+
+// Problems that would make the database refuse to even save a draft. An empty answer is fine in a draft.
+export function draftProblems(f: Form): string[] {
+  const out: string[] = [];
+  const text: [keyof typeof LIMITS, string, string][] = [
+    ['legal_name', f.legal_name, 'Your full legal name'],
+    ['nationality', f.nationality, 'Your nationality'],
+    ['id_number', f.id_number, 'Your ID number'],
+    ['residential_address', f.residential_address, 'Your residential address'],
+    ['sourcing_info', f.sourcing_info, 'What you wrote about where your products come from'],
+    ['experience_info', f.experience_info, 'What you wrote about your experience'],
+    ['returns_arrangements', f.returns_arrangements, 'Your returns arrangements'],
+    ['customer_service_arrangements', f.customer_service_arrangements, 'How you will look after customers'],
+  ];
+  for (const [key, value, label] of text) {
+    const n = value.trim().length;
+    const { min, max } = LIMITS[key];
+    if (n > 0 && (n < min || n > max)) out.push(`${label} must be ${min} to ${max} characters.`);
+  }
+  if (f.expected_catalogue_size.trim() !== '') {
+    const n = Number(f.expected_catalogue_size);
+    const { min, max } = LIMITS.expected_catalogue_size;
+    if (!Number.isInteger(n) || n < min || n > max) out.push(`The number of products must be between ${min} and ${max}.`);
+  }
+  return out;
+}
+
 // Everything the person still has to do before the Send button works.
 export function missingBeforeSend(f: Form, o: { agreementAccepted: boolean; documentKinds: string[]; contactVerified: boolean }): string[] {
   const out: string[] = [];
+  const len = (v: string) => v.trim().length;
   if (!o.contactVerified) out.push('Verify your email and phone number first');
-  if (f.legal_name.trim().length < 3) out.push('Your full legal name');
-  if (!f.nationality.trim()) out.push('Your nationality');
+  if (len(f.legal_name) < LIMITS.legal_name.min) out.push('Your full legal name');
+  if (len(f.nationality) < LIMITS.nationality.min) out.push('Your nationality');
   if (!f.is_adult) out.push('Confirm that you are 18 or older');
-  if (!f.id_number.trim()) out.push(f.id_type === 'nrc' ? 'Your NRC number' : 'Your passport number');
-  if (f.residential_address.trim().length < 8) out.push('Your residential address');
+  if (len(f.id_number) < LIMITS.id_number.min) out.push(f.id_type === 'nrc' ? 'Your NRC number' : 'Your passport number');
+  if (len(f.residential_address) < LIMITS.residential_address.min) out.push('Your residential address');
   if (f.selling_location_id == null) out.push('Where you sell from');
   if (f.category_ids.length === 0) out.push('At least one product category');
-  if (!f.sourcing_type || f.sourcing_info.trim().length < 10) out.push('Where your products come from');
+  if (!f.sourcing_type || len(f.sourcing_info) < LIMITS.sourcing_info.min) out.push('Where your products come from');
   if (!f.experience_level) out.push('Your selling experience');
   const n = Number(f.expected_catalogue_size);
-  if (!Number.isInteger(n) || n < 1) out.push('How many products you expect to list');
-  if (f.returns_arrangements.trim().length < 5) out.push('Your returns arrangements');
-  if (f.customer_service_arrangements.trim().length < 5) out.push('How you will look after customers');
+  if (!Number.isInteger(n) || n < LIMITS.expected_catalogue_size.min) out.push('How many products you expect to list');
+  if (len(f.returns_arrangements) < LIMITS.returns_arrangements.min) out.push('Your returns arrangements');
+  if (len(f.customer_service_arrangements) < LIMITS.customer_service_arrangements.min) out.push('How you will look after customers');
   if (DECLARATIONS.some((d) => !f.declarations[d.key])) out.push('Tick every declaration');
   if (!o.agreementAccepted) out.push('Accept the seller agreement');
   for (const k of requiredDocs(f.id_type)) if (!o.documentKinds.includes(k)) out.push(`Upload: ${DOC_LABEL[k]}`);

@@ -1,9 +1,10 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Notice } from '../../src/components/ui';
+import { SELLER_CLOSE } from '../../src/domain/closeAccount';
 import { canShareSellerProfile } from '../../src/domain/sellerAccess';
 import { sellerLink, sellerShareMessage, webBase } from '../../src/domain/share';
 import { fetchHub, type HubProfile } from '../../src/features/account-hub/api';
@@ -26,6 +27,7 @@ import { colors, spacing } from '../../src/theme';
 // The Profile tab. It organises screens that already exist; each row opens the existing feature.
 export default function AccountHub() {
   const router = useRouter();
+  const { notice } = useLocalSearchParams<{ notice?: string }>();
   const { userId, session } = useAuth();
   const [profile, setProfile] = useState<HubProfile | null>(null);
   const [facts, setFacts] = useState<Omit<HubFacts, 'context'> | null>(null);
@@ -87,6 +89,8 @@ export default function AccountHub() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {error ? <Notice tone="error">{error}</Notice> : null}
+      {notice === 'seller_closed' ? <Notice>{SELLER_CLOSE.done}</Notice> : null}
+      {facts.sellerApplicationError ? <Notice tone="warning">{`Your seller application status could not be loaded. ${facts.sellerApplicationError}`}</Notice> : null}
 
       <AccountHeader
         profile={profile}
