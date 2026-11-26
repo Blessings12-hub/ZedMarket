@@ -4,7 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from 'r
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { DangerConfirm } from '../../src/components/DangerConfirm';
-import { Button, Chip, Field, Notice, SectionTitle } from '../../src/components/ui';
+import { Button, Chip, Field, Notice, RequiredLegend, SectionTitle, Star } from '../../src/components/ui';
 import { SELLER_CLOSE } from '../../src/domain/closeAccount';
 import { refreshSellingAccess } from '../../src/features/seller/status';
 import * as api from '../../src/features/seller-onboarding/api';
@@ -199,46 +199,47 @@ export default function SellerApplication() {
 
       {model.editable ? (
         <>
+          <RequiredLegend />
           <SectionTitle>About you</SectionTitle>
-          <Field label="Full legal name" value={form.legal_name} onChangeText={(v) => set('legal_name', v)} />
-          <Field label="Nationality" value={form.nationality} onChangeText={(v) => set('nationality', v)} />
-          <View style={styles.row}><Text style={styles.text}>I am 18 or older</Text><Switch value={form.is_adult} onValueChange={(v) => set('is_adult', v)} /></View>
+          <Field required label="Full legal name" value={form.legal_name} onChangeText={(v) => set('legal_name', v)} />
+          <Field required label="Nationality" value={form.nationality} onChangeText={(v) => set('nationality', v)} />
+          <View style={styles.row}><Text style={styles.text}>I am 18 or older<Star /></Text><Switch value={form.is_adult} onValueChange={(v) => set('is_adult', v)} /></View>
           <View style={styles.chips}>
             <Chip label="NRC" selected={form.id_type === 'nrc'} onPress={() => set('id_type', 'nrc')} />
             <Chip label="Passport" selected={form.id_type === 'passport'} onPress={() => set('id_type', 'passport')} />
           </View>
-          <Field label={form.id_type === 'nrc' ? 'NRC number' : 'Passport number'} value={form.id_number} onChangeText={(v) => set('id_number', v)} />
-          <Field label="Residential address" value={form.residential_address} onChangeText={(v) => set('residential_address', v)} multiline />
+          <Field required label={form.id_type === 'nrc' ? 'NRC number' : 'Passport number'} value={form.id_number} onChangeText={(v) => set('id_number', v)} />
+          <Field required label="Residential address" value={form.residential_address} onChangeText={(v) => set('residential_address', v)} multiline />
 
-          <SectionTitle>Where you sell from</SectionTitle>
+          <SectionTitle required>Where you sell from</SectionTitle>
           <View style={styles.chips}>
             {(options?.locations ?? []).slice(0, 60).map((l) => (
               <Chip key={l.id} label={l.area ? `${l.area}, ${l.town}` : l.town} selected={form.selling_location_id === l.id} onPress={() => set('selling_location_id', l.id)} />
             ))}
           </View>
 
-          <SectionTitle>What you will sell</SectionTitle>
+          <SectionTitle required>What you will sell</SectionTitle>
           <View style={styles.chips}>
             {(options?.categories ?? []).map((c) => (
               <Chip key={c.id} label={c.name} selected={form.category_ids.includes(c.id)}
                 onPress={() => set('category_ids', form.category_ids.includes(c.id) ? form.category_ids.filter((x) => x !== c.id) : [...form.category_ids, c.id])} />
             ))}
           </View>
-          <Field label="About how many products will you list?" value={form.expected_catalogue_size} onChangeText={(v) => set('expected_catalogue_size', v.replace(/\D/g, ''))} keyboardType="number-pad" />
+          <Field required label="About how many products will you list?" value={form.expected_catalogue_size} onChangeText={(v) => set('expected_catalogue_size', v.replace(/\D/g, ''))} keyboardType="number-pad" />
 
-          <SectionTitle>Where your products come from</SectionTitle>
+          <SectionTitle required>Where your products come from</SectionTitle>
           <View style={styles.chips}>{SOURCING.map((s) => <Chip key={s.key} label={s.label} selected={form.sourcing_type === s.key} onPress={() => set('sourcing_type', s.key)} />)}</View>
-          <Field label="Tell us more (suppliers, receipts, brands)" value={form.sourcing_info} onChangeText={(v) => set('sourcing_info', v)} multiline />
+          <Field required label="Tell us more (suppliers, receipts, brands)" value={form.sourcing_info} onChangeText={(v) => set('sourcing_info', v)} multiline />
 
-          <SectionTitle>Experience</SectionTitle>
+          <SectionTitle required>Experience</SectionTitle>
           <View style={styles.chips}>{EXPERIENCE.map((s) => <Chip key={s.key} label={s.label} selected={form.experience_level === s.key} onPress={() => set('experience_level', s.key)} />)}</View>
           <Field label="Where have you sold before? (optional)" value={form.experience_info} onChangeText={(v) => set('experience_info', v)} multiline />
 
           <SectionTitle>Customers</SectionTitle>
-          <Field label="Returns arrangements" value={form.returns_arrangements} onChangeText={(v) => set('returns_arrangements', v)} multiline />
-          <Field label="How you will look after customers" value={form.customer_service_arrangements} onChangeText={(v) => set('customer_service_arrangements', v)} multiline />
+          <Field required label="Returns arrangements" value={form.returns_arrangements} onChangeText={(v) => set('returns_arrangements', v)} multiline />
+          <Field required label="How you will look after customers" value={form.customer_service_arrangements} onChangeText={(v) => set('customer_service_arrangements', v)} multiline />
 
-          <SectionTitle>Declarations</SectionTitle>
+          <SectionTitle required>Declarations</SectionTitle>
           {DECLARATIONS.map((d) => (
             <View key={d.key} style={styles.row}>
               <Text style={[styles.text, { flex: 1 }]}>{d.label}</Text>
@@ -251,19 +252,19 @@ export default function SellerApplication() {
 
       {app && model.showDocuments ? (
         <>
-          <SectionTitle>Documents</SectionTitle>
+          <SectionTitle required>Documents</SectionTitle>
           {requiredDocs(form.id_type).map((k) => {
             const d = mine.documents.find((x) => x.kind === k && x.scan !== 'infected');
             return (
               <View key={k} style={styles.card}>
-                <Text style={styles.title}>{DOC_LABEL[k]}</Text>
+                <Text style={styles.title}>{DOC_LABEL[k]}<Star /></Text>
                 <Text style={styles.text}>{d ? (d.scan === 'clean' ? 'Uploaded and checked' : 'Uploaded. Being checked for safety') : 'Not uploaded'}</Text>
                 <Button title={d ? 'Replace' : 'Upload'} variant="secondary" disabled={busy || !userId}
                   onPress={() => userId && run(() => api.uploadDocument(userId, app.id, k), 'Uploaded.')} />
               </View>
             );
           })}
-          <SectionTitle>Seller agreement</SectionTitle>
+          <SectionTitle required>Seller agreement</SectionTitle>
           {agreement ? <Text style={styles.text}>{agreement.body}</Text> : null}
           {app.agreement_accepted ? <Notice>You accepted the agreement.</Notice> : agreement ? (
             <Button title="I accept the seller agreement" variant="secondary" disabled={busy} onPress={() => run(() => api.acceptAgreement(agreement.version), 'Agreement accepted.')} />
