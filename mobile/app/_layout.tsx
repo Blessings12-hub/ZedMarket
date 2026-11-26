@@ -112,6 +112,8 @@ function AuthGate() {
       <Stack.Screen name="trust/applications" options={{ title: 'Verification applications' }} />
       <Stack.Screen name="trust/seller-applications" options={{ title: 'Seller applications' }} />
       <Stack.Screen name="trust/seller-application/[id]" options={{ title: 'Review application' }} />
+      <Stack.Screen name="compare" options={{ title: 'Compare' }} />
+      <Stack.Screen name="trust/photo-flags" options={{ title: 'Repeated photos' }} />
       <Stack.Screen name="trust/workload" options={{ title: 'Workload and access' }} />
       <Stack.Screen name="trust/business-applications" options={{ title: 'Business applications' }} />
       <Stack.Screen name="trust/business-application/[id]" options={{ title: 'Review business' }} />
