@@ -7,6 +7,7 @@ import { ListingRail } from '../../src/components/ListingRail';
 import { Button, Notice, SectionTitle, VerifiedBadge } from '../../src/components/ui';
 import { deliverySummary } from '../../src/domain/locations';
 import { fetchListingDeliveryInfo } from '../../src/features/locations/api';
+import { toggle as toggleCompare, useCompare } from '../../src/features/comparison/store';
 import { addItem, useCart } from '../../src/features/cart/store';
 import { inCart } from '../../src/domain/cart';
 import { startConversation } from '../../src/features/chat/api';
@@ -36,6 +37,7 @@ const PHOTO_WIDTH = Dimensions.get('window').width;
 export default function ListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const compareIds = useCompare();
   const cartItems = useCart();
   const { userId, session } = useAuth();
   const signedIn = !!session;
@@ -259,6 +261,8 @@ export default function ListingScreen() {
             ) : (
               <Button title="Add to cart" variant="secondary" onPress={addToCartPressed} disabled={!available || reserved || busy} />
             )}
+            <Button title={compareIds.includes(listing.id) ? 'Remove from compare' : 'Compare with other items'} variant="secondary" onPress={() => { if (toggleCompare(listing.id)) Alert.alert('Compare list is full', 'You can compare up to 4 items. Remove one first.'); }} />
+            {compareIds.length >= 2 ? <Button title={`Compare ${compareIds.length} items`} onPress={() => router.push('/compare')} /> : null}
             <Button title="Message seller" variant="secondary" onPress={messageSeller} disabled={!available || busy} />
             <Button title={saved ? 'Remove from saved' : 'Save for later'} variant="secondary" onPress={toggleSaved} />
             <Button title="Share" variant="secondary" onPress={shareListing} />
