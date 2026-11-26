@@ -45,12 +45,17 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading 
   );
 }
 
-type FieldProps = TextInputProps & { label: string; error?: string };
+type FieldProps = TextInputProps & { label: string; error?: string; required?: boolean };
 
-export function Field({ label, error, style, ...rest }: FieldProps) {
+// A red star marks an answer the person MUST give. Everything without a star is optional.
+export function Star() {
+  return <Text style={styles.star} accessibilityLabel="required"> *</Text>;
+}
+
+export function Field({ label, error, required, style, ...rest }: FieldProps) {
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{label}{required ? <Star /> : null}</Text>
       <TextInput
         placeholderTextColor={colors.muted}
         style={[styles.input, !!error && styles.inputError, style]}
@@ -82,8 +87,13 @@ export function Notice({ children, tone = 'info' }: { children: ReactNode; tone?
   );
 }
 
-export function SectionTitle({ children }: { children: ReactNode }) {
-  return <Text style={styles.sectionTitle}>{children}</Text>;
+export function SectionTitle({ children, required }: { children: ReactNode; required?: boolean }) {
+  return <Text style={styles.sectionTitle}>{children}{required ? <Star /> : null}</Text>;
+}
+
+// Shown once at the top of a form that has required answers.
+export function RequiredLegend() {
+  return <Text style={styles.legend}><Text style={styles.star}>*</Text> means you must fill this in. Everything else is optional.</Text>;
 }
 
 export function VerifiedBadge({ level }: { level: 'unverified' | 'contact_verified' | 'identity_verified' }) {
@@ -139,6 +149,8 @@ const styles = StyleSheet.create({
   noticeError: { backgroundColor: '#FBE9E7' },
   noticeWarning: { backgroundColor: colors.warningSoft },
   noticeText: { fontSize: 14, color: colors.text, lineHeight: 20 },
+  star: { color: colors.danger, fontWeight: '800' },
+  legend: { fontSize: 13, color: colors.muted },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
   badge: { backgroundColor: colors.primarySoft, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
   badgeText: { color: colors.primary, fontSize: 12, fontWeight: '600' },
