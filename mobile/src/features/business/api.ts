@@ -23,6 +23,7 @@ export type Storefront = {
   area: string | null;
   address: string | null;
   verified: boolean;
+  registrationKind: 'registered' | 'informal_trader' | null;
   listingCount: number;
 };
 
@@ -55,6 +56,7 @@ export async function fetchStorefront(slug: string): Promise<Storefront | null> 
     area: r.area,
     address: r.address_text,
     verified: !!r.verified,
+    registrationKind: r.registration_kind === 'informal_trader' ? 'informal_trader' : r.registration_kind === 'registered' ? 'registered' : null,
     listingCount: Number(r.listing_count),
   };
 }
