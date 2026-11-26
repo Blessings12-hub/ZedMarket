@@ -7,6 +7,7 @@ import { countUnreadNotifications } from '../notifications/api';
 import { paymentsEnabled } from '../payments/api';
 import { pickOnePhoto, toAppeal, toDispute, type Appeal, type Dispute } from '../trust/api';
 import type { HubBusiness, HubFacts } from './hub';
+import type { StripOrder } from './dashboard';
 import { readSellerApplication } from './sellerSummary';
 
 export type HubProfile = {
@@ -20,8 +21,26 @@ export type HubProfile = {
 
 // Every number the hub shows is counted from real rows. A failed piece of data becomes zero or "off" rather than
 // blocking the whole page.
-export async function fetchHub(userId: string): Promise<{ profile: HubProfile; facts: Omit<HubFacts, 'context'> }> {
-  const [p, app, listings, roles, memberships, unreadN, unreadA, payOn, mine, requests] = await Promise.all([
+// My open purchases for the "where is my order" strip. A failure is logged and shows no strip; it never blocks the hub.
+async function fetchActiveBuyingOrders(userId: string): Promise<StripOrder[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id, item_title, status, cancel_kind, handed_over_at, fulfilment')
+    .eq('buyer_id', userId)
+    .in('status', ['requested', 'confirmed', 'disputed'])
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) {
+    console.warn('[account hub] my open orders could not be loaded', error);
+    return [];
+  }
+  return (data as { id: string; item_title: string; status: StripOrder['status']; cancel_kind: StripOrder['cancelKind']; handed_over_at: string | null; fulfilment: StripOrder['fulfilment'] }[]).map((o) => ({
+    id: o.id, title: o.item_title, status: o.status, cancelKind: o.cancel_kind, handedOverAt: o.handed_over_at, fulfilment: o.fulfilment,
+  }));
+}
+
+export async function fetchHub(userId: string): Promise<{ profile: HubProfile; facts: Omit<HubFacts, 'context'>; orders: StripOrder[] }> {
+  const [p, app, listings, roles, memberships, unreadN, unreadA, payOn, mine, requests, orders] = await Promise.all([
     supabase.from('profiles').select('display_name, bio, avatar_path, verification_level, account_state, created_at, seller_status').eq('id', userId).single(),
     // The seller part can fail on its own without breaking the rest of the hub.
     readSellerApplication(() => supabase.rpc('seller_application_mine')),
@@ -33,6 +52,7 @@ export async function fetchHub(userId: string): Promise<{ profile: HubProfile; f
     paymentsEnabled().catch(() => false),
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('buyer_id', userId).in('status', ['requested', 'confirmed']),
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('seller_id', userId).is('business_id', null).eq('status', 'requested'),
+    fetchActiveBuyingOrders(userId),
   ]);
   if (p.error) throw p.error;
   // These counts are shown as zero when they fail, but the failure is logged, not hidden.
@@ -66,6 +86,7 @@ export async function fetchHub(userId: string): Promise<{ profile: HubProfile; f
       },
       businesses,
     },
+    orders,
   };
 }
 

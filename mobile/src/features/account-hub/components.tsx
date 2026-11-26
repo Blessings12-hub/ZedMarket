@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button, VerifiedBadge } from '../../components/ui';
 import { colors, radius, spacing } from '../../theme';
 import { avatarUrl, type HubProfile } from './api';
+import { badgeText, STRIP_STEPS, type Nudge, type SellingBanner as BannerModel, type StripItem, type Tile } from './dashboard';
 import { contextOptions, emailStatus, memberSince, type HubBusiness, type HubItem, type HubSection } from './hub';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -151,7 +152,159 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
+// ----- redesigned top of the hub -----
+
+// Compact: photo, name, and one line of status. Details live in Edit profile.
+export function HubHeader({ profile, email, emailConfirmedAt, isSeller, onEdit, onShare }: {
+  profile: HubProfile; email: string | undefined; emailConfirmedAt: string | null | undefined; isSeller: boolean; onEdit: () => void; onShare?: () => void;
+}) {
+  const url = avatarUrl(profile.avatarPath);
+  const confirmed = emailStatus(emailConfirmedAt) === 'verified';
+  return (
+    <View style={styles.hubHeader}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Edit profile" onPress={onEdit}>
+        {url ? <Image source={{ uri: url }} style={styles.avatar} accessibilityLabel="Your profile photo" /> : (
+          <View style={[styles.avatar, styles.avatarEmpty]}><Text style={styles.avatarText}>{profile.displayName.trim().slice(0, 1).toUpperCase()}</Text></View>
+        )}
+      </Pressable>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.name} numberOfLines={1}>{profile.displayName}</Text>
+        <Text style={styles.muted} numberOfLines={1}>{email ?? `Member since ${memberSince(profile.createdAt)}`}</Text>
+        <View style={styles.badges}>
+          <VerifiedBadge level={profile.level} />
+          {isSeller ? <Text style={[styles.pill, styles.pillOk]}>Verified seller</Text> : null}
+          {!confirmed ? <Text style={[styles.pill, styles.pillWarn]}>Email not confirmed</Text> : null}
+        </View>
+      </View>
+      <View style={{ gap: spacing.xs }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Edit profile" onPress={onEdit} style={styles.roundBtn}>
+          <Ionicons name="create-outline" size={20} color={colors.primary} />
+        </Pressable>
+        {onShare ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Share profile" onPress={onShare} style={styles.roundBtn}>
+            <Ionicons name="share-outline" size={20} color={colors.primary} />
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+// Three across, two rows. A small count badge sits on the icon.
+export function TilesGrid({ tiles, onOpen }: { tiles: Tile[]; onOpen: (t: Tile) => void }) {
+  return (
+    <View style={styles.grid}>
+      {tiles.map((t) => {
+        const badge = badgeText(t.count);
+        return (
+          <Pressable key={t.key} accessibilityRole="button" accessibilityLabel={badge ? `${t.label}, ${badge}` : t.label} onPress={() => onOpen(t)} style={styles.gridTile}>
+            <View>
+              <Ionicons name={iconFor(t.key)} size={26} color={colors.primary} accessibilityElementsHidden />
+              {badge ? <Text style={styles.countBadge}>{badge}</Text> : null}
+            </View>
+            <Text style={styles.tileLabel} numberOfLines={1}>{t.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// Horizontal cards, one per open purchase, with a four-step progress bar.
+export function OrderStrip({ items, more, onOpen }: { items: StripItem[]; more: number; onOpen: () => void }) {
+  if (items.length === 0) return null;
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <View style={styles.stripHead}>
+        <Text style={styles.stripTitle} accessibilityRole="header">Your orders in progress</Text>
+        <Pressable accessibilityRole="button" onPress={onOpen} hitSlop={8}><Text style={styles.link}>{more > 0 ? `See all (+${more})` : 'See all'}</Text></Pressable>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+        {items.map((o) => (
+          <Pressable key={o.id} accessibilityRole="button" accessibilityLabel={`${o.title}, ${o.label}`} onPress={onOpen} style={[styles.orderCard, o.needsYou && styles.orderNeeds, o.problem && styles.orderProblem]}>
+            <Text style={styles.itemTitle} numberOfLines={1}>{o.title}</Text>
+            <Text style={[styles.muted, (o.needsYou || o.problem) && { color: colors.warning, fontWeight: '600' }]} numberOfLines={2}>{o.label}</Text>
+            <View style={styles.steps} accessibilityElementsHidden>
+              {STRIP_STEPS.map((s, i) => <View key={s} style={[styles.step, i <= o.step && !o.problem && styles.stepOn, o.problem && i <= o.step && styles.stepBad]} />)}
+            </View>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+export function NudgeCard({ nudge, onPress }: { nudge: Nudge; onPress: () => void }) {
+  return (
+    <View style={styles.nudge}>
+      <Text style={styles.itemTitle}>{nudge.title}</Text>
+      <Text style={styles.muted}>{nudge.body}</Text>
+      <Button title={nudge.cta} variant="secondary" onPress={onPress} />
+    </View>
+  );
+}
+
+// An invitation, not a push: buying comes first, selling needs verification.
+export function SellingBanner({ banner, onOpen }: { banner: BannerModel; onOpen: (href: BannerModel['href']) => void }) {
+  return (
+    <View style={styles.banner}>
+      <View style={styles.bannerTop}>
+        <Ionicons name="storefront-outline" size={22} color={colors.onPrimary} accessibilityElementsHidden />
+        <Text style={styles.bannerTitle} accessibilityRole="header">{banner.title}</Text>
+        {banner.badge ? <Text style={styles.bannerBadge}>{banner.badge}</Text> : null}
+      </View>
+      <Text style={styles.bannerBody}>{banner.body}</Text>
+      <Pressable accessibilityRole="button" onPress={() => onOpen(banner.href)} style={styles.bannerBtn}>
+        <Text style={styles.bannerBtnText}>{banner.cta}</Text>
+      </Pressable>
+      {banner.secondary ? (
+        <Pressable accessibilityRole="button" onPress={() => onOpen(banner.secondary!.href)} hitSlop={8}>
+          <Text style={styles.bannerLink}>{banner.secondary.title}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+// Grey blocks in the shape of the page, so it does not jump when the data arrives.
+export function HubSkeleton() {
+  return (
+    <View style={{ gap: spacing.md }} accessibilityLabel="Loading your account" accessibilityRole="progressbar">
+      <View style={[styles.skel, { height: 84 }]} />
+      <View style={styles.grid}>{[0, 1, 2, 3, 4, 5].map((i) => <View key={i} style={[styles.gridTile, styles.skel, { backgroundColor: colors.border }]} />)}</View>
+      <View style={[styles.skel, { height: 110 }]} />
+      <View style={[styles.skel, { height: 180 }]} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  hubHeader: { flexDirection: 'row', gap: spacing.md, alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
+  roundBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  gridTile: { flexBasis: '31%', flexGrow: 1, minHeight: 84, backgroundColor: colors.primarySoft, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', padding: spacing.sm, gap: 6 },
+  countBadge: { position: 'absolute', top: -6, right: -12, minWidth: 18, paddingHorizontal: 4, height: 18, lineHeight: 18, borderRadius: 9, overflow: 'hidden', textAlign: 'center', fontSize: 11, fontWeight: '700', color: colors.onPrimary, backgroundColor: colors.primary },
+  stripHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  stripTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
+  link: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  orderCard: { width: 230, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: 4 },
+  orderNeeds: { borderColor: colors.warning, backgroundColor: colors.warningSoft },
+  orderProblem: { borderColor: colors.danger },
+  steps: { flexDirection: 'row', gap: 4, marginTop: spacing.sm },
+  step: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  stepOn: { backgroundColor: colors.primary },
+  stepBad: { backgroundColor: colors.danger },
+  nudge: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.sm },
+  banner: { backgroundColor: colors.primary, borderRadius: radius.md, padding: spacing.lg, gap: spacing.sm },
+  bannerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  bannerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.onPrimary },
+  bannerBadge: { fontSize: 12, fontWeight: '700', color: colors.primary, backgroundColor: colors.onPrimary, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.sm, overflow: 'hidden' },
+  bannerBody: { fontSize: 14, lineHeight: 20, color: colors.onPrimary },
+  bannerBtn: { minHeight: 48, borderRadius: radius.md, backgroundColor: colors.onPrimary, alignItems: 'center', justifyContent: 'center', marginTop: spacing.xs },
+  bannerBtnText: { fontSize: 15, fontWeight: '700', color: colors.primary },
+  bannerLink: { fontSize: 14, fontWeight: '600', color: colors.onPrimary, textDecorationLine: 'underline', textAlign: 'center', paddingVertical: spacing.xs },
+  skel: { backgroundColor: colors.primarySoft, borderRadius: radius.md },
+
   card: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.sm },
   headerRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
   avatar: { width: 64, height: 64, borderRadius: 32 },

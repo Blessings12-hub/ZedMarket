@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Notice } from '../../src/components/ui';
@@ -9,13 +9,18 @@ import { canShareSellerProfile } from '../../src/domain/sellerAccess';
 import { sellerLink, sellerShareMessage, webBase } from '../../src/domain/share';
 import { fetchHub, type HubProfile } from '../../src/features/account-hub/api';
 import {
-  AccountHeader,
-  AccountQuickActions,
   AccountSection,
   AccountTypeSwitcher,
   BusinessSummary,
+  HubHeader,
+  HubSkeleton,
+  NudgeCard,
+  OrderStrip,
   SellerSummary,
+  SellingBanner,
+  TilesGrid,
 } from '../../src/features/account-hub/components';
+import { orderStrip, profileNudge, quickTiles, sellingBanner, type StripOrder } from '../../src/features/account-hub/dashboard';
 import { buildHub, validContext, type HubFacts, type HubItem } from '../../src/features/account-hub/hub';
 import { watchNotifications, countUnreadNotifications } from '../../src/features/notifications/api';
 import { disablePushForThisPhone } from '../../src/features/notifications/push';
@@ -32,7 +37,9 @@ export default function AccountHub() {
   const [profile, setProfile] = useState<HubProfile | null>(null);
   const [facts, setFacts] = useState<Omit<HubFacts, 'context'> | null>(null);
   const [context, setContext] = useState<string>('personal');
+  const [orders, setOrders] = useState<StripOrder[]>([]);
   const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -40,6 +47,7 @@ export default function AccountHub() {
       const hub = await fetchHub(userId);
       setProfile(hub.profile);
       setFacts(hub.facts);
+      setOrders(hub.orders);
       // Tell the bottom bar and the selling screens what the team has decided about this person.
       setSellingAccess({ status: hub.facts.sellerStatus, hasBusiness: hub.facts.businesses.length > 0 });
       setContext((c) => validContext(c, hub.facts.businesses));
@@ -74,12 +82,25 @@ export default function AccountHub() {
   if (!profile || !facts) {
     return (
       <View style={styles.center}>
-        {error ? <Notice tone="error">{error}</Notice> : <ActivityIndicator color={colors.primary} />}
+        {error ? (
+          <>
+            <Notice tone="error">{error}</Notice>
+            <Button title="Try again" variant="secondary" onPress={() => void load()} />
+          </>
+        ) : <HubSkeleton />}
       </View>
     );
   }
 
-  const sections = buildHub({ ...facts, context });
+  const banner = sellingBanner(facts);
+  const nudge = profileNudge({
+    emailConfirmed: !!session?.user.email_confirmed_at,
+    hasAvatar: !!profile.avatarPath,
+    hasBio: profile.bio.trim().length > 0,
+  });
+  const strip = orderStrip(orders);
+  // The selling invitation replaces the plain "Sell on ZedMarket" list for buyers; it is the same two doors, shown better.
+  const sections = buildHub({ ...facts, context }).filter((x) => !(banner && x.key === 'become-seller'));
   const selected = facts.businesses.find((b) => b.id === context);
   const isSeller = facts.sellerStatus === 'active';
   // Everything about selling sits together at the bottom, so the business switcher goes with it.
@@ -87,12 +108,16 @@ export default function AccountHub() {
   const firstSellingKey = sections.find((x) => sellingKeys.includes(x.key))?.key;
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load().finally(() => setRefreshing(false)); }} tintColor={colors.primary} />}
+    >
       {error ? <Notice tone="error">{error}</Notice> : null}
       {notice === 'seller_closed' ? <Notice>{SELLER_CLOSE.done}</Notice> : null}
       {facts.sellerApplicationError ? <Notice tone="warning">{`Your seller application status could not be loaded. ${facts.sellerApplicationError}`}</Notice> : null}
 
-      <AccountHeader
+      <HubHeader
         profile={profile}
         email={session?.user.email}
         emailConfirmedAt={session?.user.email_confirmed_at}
@@ -113,17 +138,13 @@ export default function AccountHub() {
         </>
       ) : null}
 
-      <AccountQuickActions
-        actions={[
-          { key: 'cart', label: 'Cart', onPress: () => router.push('/(tabs)/cart') },
-          { key: 'orders', label: 'Orders', onPress: () => router.push('/orders'), badge: facts.activeBuying > 0 ? `${facts.activeBuying} open` : undefined },
-          { key: 'saved', label: 'Saved', onPress: () => router.push('/saved') },
-          // Buyers get Messages here; approved sellers get their listings (Messages is already a tab).
-          isSeller
-            ? { key: 'listings', label: 'Listings', onPress: () => router.push('/account/listings'), badge: facts.listings.live > 0 ? `${facts.listings.live} live` : undefined }
-            : { key: 'messages', label: 'Messages', onPress: () => router.push('/(tabs)/messages') },
-        ]}
-      />
+      <TilesGrid tiles={quickTiles(facts)} onOpen={(t) => router.push(t.href as never)} />
+
+      <OrderStrip items={strip.items} more={strip.more} onOpen={() => router.push('/orders')} />
+
+      {nudge ? <NudgeCard nudge={nudge} onPress={() => router.push(nudge.href as never)} /> : null}
+
+      {banner ? <SellingBanner banner={banner} onOpen={(href) => router.push(href as never)} /> : null}
 
       {sections.map((section) => (
         <View key={section.key} style={{ gap: spacing.sm }}>
