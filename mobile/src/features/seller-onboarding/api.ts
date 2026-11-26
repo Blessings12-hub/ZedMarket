@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { readPhoto, uploadObject } from '../../lib/storage';
 import { pickOnePhoto } from '../trust/api';
 import type { Form } from './domain';
 import { loadMine, type MyApplication } from './mine';
@@ -37,10 +38,9 @@ export const respondToRequest = (id: string, text: string) => rpc<void>('seller_
 export async function uploadDocument(userId: string, appId: string, kind: string): Promise<boolean> {
   const uri = await pickOnePhoto();
   if (!uri) return false;
-  const body = await (await fetch(uri)).arrayBuffer();
+  const body = await readPhoto(uri);
   const path = `${userId}/seller/${kind}-${Date.now()}.jpg`;
-  const up = await supabase.storage.from('identity-documents').upload(path, body, { contentType: 'image/jpeg', upsert: false });
-  if (up.error) throw up.error;
+  await uploadObject('identity-documents', path, body);
   await rpc<string>('verification_register_document', {
     p_subject_type: 'seller_application', p_subject_id: appId, p_kind: kind, p_bucket: 'identity-documents', p_path: path,
   });

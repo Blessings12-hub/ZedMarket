@@ -1,5 +1,6 @@
 import { toSellerStatus } from '../../domain/sellerAccess';
 import { supabase } from '../../lib/supabase';
+import { readPhoto, uploadObject } from '../../lib/storage';
 import { fetchMyRoles } from '../admin/api';
 import { fetchMyListings } from '../listings/api';
 import { countUnreadAlerts } from '../listings/api';
@@ -103,10 +104,9 @@ export async function saveProfile(userId: string, displayName: string, bio: stri
 export async function changeAvatar(userId: string): Promise<string | null> {
   const uri = await pickOnePhoto();
   if (!uri) return null;
-  const body = await (await fetch(uri)).arrayBuffer();
+  const body = await readPhoto(uri);
   const path = `${userId}/avatar-${Date.now()}.jpg`;
-  const up = await supabase.storage.from('avatars').upload(path, body, { contentType: 'image/jpeg', upsert: false });
-  if (up.error) throw up.error;
+  await uploadObject('avatars', path, body);
   const { error } = await supabase.from('profiles').update({ avatar_path: path }).eq('id', userId);
   if (error) throw error;
   return path;

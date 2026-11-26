@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import type { DocumentType, ReviewState } from '../../domain/trust';
 import { supabase } from '../../lib/supabase';
+import { readPhoto, uploadObject } from '../../lib/storage';
 
 // ---------------------------------------------------------------------------
 // Photos for private files (ID, registration papers, dispute evidence)
@@ -27,10 +28,9 @@ export async function pickOnePhoto(): Promise<string | null> {
 export type PrivateBucket = 'identity-documents' | 'business-documents' | 'dispute-evidence' | 'support-evidence';
 
 export async function uploadPrivate(bucket: PrivateBucket, userId: string, folder: string, uri: string): Promise<string> {
-  const body = await (await fetch(uri)).arrayBuffer();
+  const body = await readPhoto(uri);
   const path = `${userId}/${folder}/${Date.now()}.jpg`;
-  const { error } = await supabase.storage.from(bucket).upload(path, body, { contentType: 'image/jpeg', upsert: false });
-  if (error) throw error;
+  await uploadObject(bucket, path, body);
   return path;
 }
 

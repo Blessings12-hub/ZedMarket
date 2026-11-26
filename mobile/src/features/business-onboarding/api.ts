@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { readPhoto, uploadObject } from '../../lib/storage';
 import type { Party, BizForm } from './domain';
 import { loadMine, type MyBusinessApplication } from './mine';
 
@@ -52,10 +53,9 @@ export const respondToRequest = (id: string, text: string) => rpc<void>('busines
 export async function uploadDocument(userId: string, appId: string, kind: string, pick: () => Promise<string | null>): Promise<boolean> {
   const uri = await pick();
   if (!uri) return false;
-  const body = await (await fetch(uri)).arrayBuffer();
+  const body = await readPhoto(uri);
   const path = `${userId}/business/${kind}-${Date.now()}.jpg`;
-  const up = await supabase.storage.from('business-documents').upload(path, body, { contentType: 'image/jpeg', upsert: false });
-  if (up.error) throw up.error;
+  await uploadObject('business-documents', path, body);
   await rpc<string>('verification_register_document', {
     p_subject_type: 'business_application', p_subject_id: appId, p_kind: kind, p_bucket: 'business-documents', p_path: path,
   });
