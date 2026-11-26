@@ -5,6 +5,7 @@ import { MAX_PHOTOS, type ItemCondition } from '../../domain/listing';
 import { parsePrice } from '../../domain/money';
 import { cleanSearchTerm } from '../../domain/search';
 import { supabase } from '../../lib/supabase';
+import { isMissingFunction } from './area';
 import type {
   Category,
   Filters,
@@ -121,14 +122,17 @@ async function rpcListings(fn: string, args: Record<string, unknown>): Promise<L
 
 // Works for guests and signed-in users alike. Wildcards in the search word are
 // handled by the database function, so the word is only trimmed and capped here.
-export function fetchListings(
+// With a province, only listings in that province are returned (migration 0030). If the server does not have that
+// function yet, the older search runs instead, so the home screen never breaks while the update is pending.
+export async function fetchListings(
   term: string,
   filters: Filters,
   page: number,
   sellerId: string | null = null,
+  province: string | null = null,
 ): Promise<ListingSummary[]> {
   const cleaned = cleanSearchTerm(term);
-  return rpcListings('search_listings', {
+  const args = {
     p_term: cleaned.length >= 2 ? cleaned : null,
     p_category_id: filters.categoryId,
     p_location_id: filters.locationId,
@@ -140,7 +144,16 @@ export function fetchListings(
     p_limit: PAGE_SIZE,
     p_offset: page * PAGE_SIZE,
     p_seller_id: sellerId,
-  });
+  };
+  if (province) {
+    try {
+      return await rpcListings('search_listings_in_province', { p_province: province, ...args });
+    } catch (e) {
+      if (!isMissingFunction(e)) throw e;
+      console.warn('[listings] province search is not on the server yet; using the older search', e);
+    }
+  }
+  return rpcListings('search_listings', args);
 }
 
 export const fetchFeatured = () => rpcListings('featured_listings_now', { p_limit: 10 });

@@ -10,15 +10,17 @@ import { friendlyError } from '../../src/lib/errors';
 import { colors, spacing } from '../../src/theme';
 
 export default function EditAddress() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  // preset=delivery opens a blank form already set up as the buyer's default delivery location.
+  const { id, preset } = useLocalSearchParams<{ id?: string; preset?: string }>();
   const router = useRouter();
-  const [label, setLabel] = useState('');
-  const [kind, setKind] = useState<AddressKind>('both');
+  const delivery = preset === 'delivery' && !id;
+  const [label, setLabel] = useState(delivery ? 'Home' : '');
+  const [kind, setKind] = useState<AddressKind>(delivery ? 'delivery' : 'both');
   const [locationId, setLocationId] = useState<number | null>(null);
   const [street, setStreet] = useState('');
   const [landmark, setLandmark] = useState('');
   const [directions, setDirections] = useState('');
-  const [isDefault, setIsDefault] = useState(false);
+  const [isDefault, setIsDefault] = useState(delivery);
   const [latText, setLatText] = useState('');
   const [lngText, setLngText] = useState('');
   const [error, setError] = useState('');

@@ -70,6 +70,8 @@ function AuthGate() {
       <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
       <Stack.Screen name="notification-settings" options={{ title: 'Notification settings' }} />
       <Stack.Screen name="checkout/[listingId]" options={{ title: 'Request to buy' }} />
+      <Stack.Screen name="purchases" options={{ title: 'My orders' }} />
+      <Stack.Screen name="sell-hub" options={{ title: 'Selling and business' }} />
       <Stack.Screen name="order/[id]" options={{ title: 'Order' }} />
       <Stack.Screen name="dispute/open" options={{ title: 'Report a problem' }} />
       <Stack.Screen name="dispute/[id]" options={{ title: 'Dispute' }} />

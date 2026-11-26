@@ -10,18 +10,14 @@ import { sellerLink, sellerShareMessage, webBase } from '../../src/domain/share'
 import { fetchHub, type HubProfile } from '../../src/features/account-hub/api';
 import {
   AccountSection,
-  AccountTypeSwitcher,
-  BusinessSummary,
   HubHeader,
   HubSkeleton,
   NudgeCard,
   OrderStrip,
-  SellerSummary,
-  SellingBanner,
   TilesGrid,
 } from '../../src/features/account-hub/components';
-import { orderStrip, profileNudge, quickTiles, sellingBanner, type StripOrder } from '../../src/features/account-hub/dashboard';
-import { buildHub, validContext, type HubFacts, type HubItem } from '../../src/features/account-hub/hub';
+import { orderStrip, profileNudge, quickTiles, type StripOrder } from '../../src/features/account-hub/dashboard';
+import { buildHub, type HubFacts, type HubItem } from '../../src/features/account-hub/hub';
 import { watchNotifications, countUnreadNotifications } from '../../src/features/notifications/api';
 import { disablePushForThisPhone } from '../../src/features/notifications/push';
 import { setSellingAccess } from '../../src/features/seller/status';
@@ -36,7 +32,6 @@ export default function AccountHub() {
   const { userId, session } = useAuth();
   const [profile, setProfile] = useState<HubProfile | null>(null);
   const [facts, setFacts] = useState<Omit<HubFacts, 'context'> | null>(null);
-  const [context, setContext] = useState<string>('personal');
   const [orders, setOrders] = useState<StripOrder[]>([]);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -50,7 +45,6 @@ export default function AccountHub() {
       setOrders(hub.orders);
       // Tell the bottom bar and the selling screens what the team has decided about this person.
       setSellingAccess({ status: hub.facts.sellerStatus, hasBusiness: hub.facts.businesses.length > 0 });
-      setContext((c) => validContext(c, hub.facts.businesses));
       setError('');
     } catch (e) {
       setError(friendlyError(e));
@@ -92,20 +86,14 @@ export default function AccountHub() {
     );
   }
 
-  const banner = sellingBanner(facts);
   const nudge = profileNudge({
     emailConfirmed: !!session?.user.email_confirmed_at,
     hasAvatar: !!profile.avatarPath,
     hasBio: profile.bio.trim().length > 0,
   });
   const strip = orderStrip(orders);
-  // The selling invitation replaces the plain "Sell on ZedMarket" list for buyers; it is the same two doors, shown better.
-  const sections = buildHub({ ...facts, context }).filter((x) => !(banner && x.key === 'become-seller'));
-  const selected = facts.businesses.find((b) => b.id === context);
+  const sections = buildHub({ ...facts, context: 'personal' });
   const isSeller = facts.sellerStatus === 'active';
-  // Everything about selling sits together at the bottom, so the business switcher goes with it.
-  const sellingKeys = ['selling', 'business', 'become-seller'];
-  const firstSellingKey = sections.find((x) => sellingKeys.includes(x.key))?.key;
 
   return (
     <ScrollView
@@ -140,19 +128,12 @@ export default function AccountHub() {
 
       <TilesGrid tiles={quickTiles(facts)} onOpen={(t) => router.push(t.href as never)} />
 
-      <OrderStrip items={strip.items} more={strip.more} onOpen={() => router.push('/orders')} />
+      <OrderStrip items={strip.items} more={strip.more} onOpen={() => router.push('/purchases')} />
 
       {nudge ? <NudgeCard nudge={nudge} onPress={() => router.push(nudge.href as never)} /> : null}
 
-      {banner ? <SellingBanner banner={banner} onOpen={(href) => router.push(href as never)} /> : null}
-
       {sections.map((section) => (
-        <View key={section.key} style={{ gap: spacing.sm }}>
-          {section.key === firstSellingKey ? <AccountTypeSwitcher businesses={facts.businesses} value={context} onChange={setContext} /> : null}
-          {section.key === 'selling' && isSeller ? <SellerSummary {...facts.listings} /> : null}
-          {section.key === 'business' && selected ? <BusinessSummary business={selected} /> : null}
-          <AccountSection section={section} onOpen={open} />
-        </View>
+        <AccountSection key={section.key} section={section} onOpen={open} />
       ))}
 
       <Button
