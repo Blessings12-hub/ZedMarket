@@ -1,19 +1,21 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
+import { AreaSheet } from '../../src/components/AreaSheet';
+import { DeliveryBar } from '../../src/components/DeliveryBar';
 import { FilterSheet } from '../../src/components/FilterSheet';
 import { ListingCard } from '../../src/components/ListingCard';
 import { ListingRail } from '../../src/components/ListingRail';
-import { Chip, Notice } from '../../src/components/ui';
+import { Notice } from '../../src/components/ui';
+import type { Place } from '../../src/domain/locations';
 import { describeSearch } from '../../src/domain/search';
 import {
   clearRecentlyViewed,
   fetchFeatured,
   fetchListings,
-  fetchNearby,
   fetchRecentlyViewed,
   fetchRecommended,
   fetchTrending,
@@ -29,19 +31,18 @@ import {
   type ListingSummary,
   type Location,
 } from '../../src/features/listings/types';
+import { browseLabel, deliveryShort, pickDeliveryAddress, provinceFor, validArea } from '../../src/features/listings/area';
+import { listMyAddresses, loadPlaces, type SavedAddress } from '../../src/features/locations/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
-
-const NEARBY_KEY = 'zedmarket.nearbyLocation';
 
 type Rails = {
   featured: ListingSummary[];
   trending: ListingSummary[];
   recommended: ListingSummary[];
   recent: ListingSummary[];
-  nearby: ListingSummary[];
 };
-const emptyRails: Rails = { featured: [], trending: [], recommended: [], recent: [], nearby: [] };
+const emptyRails: Rails = { featured: [], trending: [], recommended: [], recent: [] };
 
 // One rail failing (for example on a weak connection) must not hide the others.
 const safely = (p: Promise<ListingSummary[]>) => p.catch(() => [] as ListingSummary[]);
@@ -66,7 +67,11 @@ export default function BrowseScreen() {
   const latestRequest = useRef(0);
 
   const [rails, setRails] = useState<Rails>(emptyRails);
-  const [nearbyId, setNearbyId] = useState<number | null>(null);
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [myAddress, setMyAddress] = useState<SavedAddress | null>(null);
+  const [areaOpen, setAreaOpen] = useState(false);
+  // Everything is shown for the whole province (Lusaka by default, or where the person's delivery location is).
+  const province = provinceFor(places, myAddress?.locationId);
 
   useEffect(() => {
     loadReferenceData()
@@ -75,12 +80,7 @@ export default function BrowseScreen() {
         setLocations(ref.locations);
       })
       .catch((e) => setError(friendlyError(e)));
-    AsyncStorage.getItem(NEARBY_KEY)
-      .then((v) => {
-        const id = v ? Number(v) : NaN;
-        if (Number.isInteger(id)) setNearbyId(id);
-      })
-      .catch(() => undefined);
+    loadPlaces().then(setPlaces).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -94,7 +94,7 @@ export default function BrowseScreen() {
       setLoading(true);
       setError('');
       try {
-        const rows = await fetchListings(debouncedTerm, filters, nextPage);
+        const rows = await fetchListings(debouncedTerm, filters, nextPage, null, province);
         if (request !== latestRequest.current) return;
         setItems((prev) => (replace ? rows : [...prev, ...rows]));
         setPage(nextPage);
@@ -105,7 +105,7 @@ export default function BrowseScreen() {
         if (request === latestRequest.current) setLoading(false);
       }
     },
-    [debouncedTerm, filters],
+    [debouncedTerm, filters, province],
   );
 
   useEffect(() => {
@@ -114,15 +114,14 @@ export default function BrowseScreen() {
 
   // Rails refresh every time the tab comes back into view, so "recently viewed" is current.
   const loadRails = useCallback(async () => {
-    const [featured, trending, recommended, recent, nearby] = await Promise.all([
+    const [featured, trending, recommended, recent] = await Promise.all([
       safely(fetchFeatured()),
       safely(fetchTrending()),
       signedIn ? safely(fetchRecommended()) : Promise.resolve([]),
       signedIn ? safely(fetchRecentlyViewed()) : Promise.resolve([]),
-      nearbyId !== null ? safely(fetchNearby(nearbyId)) : Promise.resolve([]),
     ]);
-    setRails({ featured, trending, recommended, recent, nearby });
-  }, [signedIn, nearbyId]);
+    setRails({ featured, trending, recommended, recent });
+  }, [signedIn]);
 
   useFocusEffect(
     useCallback(() => {
@@ -130,9 +129,29 @@ export default function BrowseScreen() {
     }, [loadRails]),
   );
 
-  function chooseNearby(id: number) {
-    setNearbyId(id);
-    AsyncStorage.setItem(NEARBY_KEY, String(id)).catch(() => undefined);
+  // The delivery location is re-read each time Home comes back into view, so a change made elsewhere shows at once.
+  useFocusEffect(
+    useCallback(() => {
+      if (!signedIn) {
+        setMyAddress(null);
+        return;
+      }
+      listMyAddresses().then((rows) => setMyAddress(pickDeliveryAddress(rows))).catch(() => undefined);
+    }, [signedIn]),
+  );
+
+  // An area chosen earlier is dropped if the person's province changed.
+  useEffect(() => {
+    if (places.length === 0 || filters.locationId === null) return;
+    if (validArea(places, province, filters.locationId) === null) setFilters((f) => ({ ...f, locationId: null }));
+  }, [places, province, filters.locationId]);
+
+  function editDeliveryLocation() {
+    if (!signedIn) {
+      router.push('/sign-in');
+      return;
+    }
+    router.push(myAddress ? { pathname: '/addresses/edit', params: { id: myAddress.id } } : { pathname: '/addresses/edit', params: { preset: 'delivery' } });
   }
 
   async function clearHistory() {
@@ -169,7 +188,7 @@ export default function BrowseScreen() {
     }
   }
 
-  const areas = locations.filter((l) => l.area);
+  const areaName = browseLabel(places, province, filters.locationId);
 
   const header = (
     <View>
@@ -194,20 +213,7 @@ export default function BrowseScreen() {
             }
           />
 
-          <View style={styles.nearbyHead}>
-            <Text style={styles.railTitle}>Near you</Text>
-            <Text style={styles.railNote}>
-              {nearbyId === null ? 'Pick your area to see items in your town' : 'Items in your town, your area first'}
-            </Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {areas.map((l) => (
-              <Chip key={l.id} label={l.area ?? ''} selected={nearbyId === l.id} onPress={() => chooseNearby(l.id)} />
-            ))}
-          </ScrollView>
-          <ListingRail title="" items={rails.nearby} />
-
-          <Text style={styles.allTitle}>All listings</Text>
+          <Text style={styles.allTitle}>{filters.locationId === null ? `New in ${province}` : `New in ${areaName}`}</Text>
         </View>
       ) : null}
     </View>
@@ -215,6 +221,7 @@ export default function BrowseScreen() {
 
   return (
     <View style={styles.screen}>
+      {signedIn ? <DeliveryBar line={deliveryShort(places, myAddress)} onPress={editDeliveryLocation} /> : null}
       <View style={styles.searchRow}>
         <TextInput
           value={term}
@@ -229,6 +236,18 @@ export default function BrowseScreen() {
         <Pressable accessibilityRole="button" style={styles.filterButton} onPress={() => setFiltersOpen(true)}>
           <Text style={styles.filterText}>Filters{activeFilters > 0 ? ` (${activeFilters})` : ''}</Text>
         </Pressable>
+      </View>
+
+      <View style={styles.nearRow}>
+        <Pressable accessibilityRole="button" accessibilityLabel={filters.locationId === null ? 'Search for items near you' : `Showing ${areaName}. Change area`} onPress={() => setAreaOpen(true)} style={[styles.nearButton, filters.locationId !== null && styles.nearOn]}>
+          <Ionicons name="navigate-outline" size={18} color={colors.primary} accessibilityElementsHidden />
+          <Text style={styles.nearText} numberOfLines={1}>{filters.locationId === null ? 'Search for items near you' : `Near you: ${areaName}`}</Text>
+        </Pressable>
+        {filters.locationId !== null ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Show all of ${province}`} onPress={() => setFilters((f) => ({ ...f, locationId: null }))} hitSlop={8}>
+            <Text style={styles.link}>All of {province}</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {error ? (
@@ -263,6 +282,18 @@ export default function BrowseScreen() {
           )
         }
         ListFooterComponent={loading && page > 0 ? <ActivityIndicator color={colors.primary} style={{ margin: spacing.lg }} /> : null}
+      />
+
+      <AreaSheet
+        visible={areaOpen}
+        places={places}
+        province={province}
+        selectedId={filters.locationId}
+        onPick={(id) => {
+          setFilters((f) => ({ ...f, locationId: id }));
+          setAreaOpen(false);
+        }}
+        onClose={() => setAreaOpen(false)}
       />
 
       <FilterSheet
@@ -307,10 +338,10 @@ const styles = StyleSheet.create({
   saveRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   saveText: { color: colors.primary, fontWeight: '600', textDecorationLine: 'underline' },
   link: { color: colors.primary, fontWeight: '600' },
-  nearbyHead: { paddingHorizontal: spacing.lg, marginBottom: spacing.xs },
-  railTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  railNote: { fontSize: 12, color: colors.muted },
-  chipRow: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.sm },
+  nearRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  nearButton: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, paddingHorizontal: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surface },
+  nearOn: { backgroundColor: colors.primarySoft },
+  nearText: { flex: 1, fontSize: 15, fontWeight: '600', color: colors.primary },
   allTitle: { fontSize: 18, fontWeight: '700', color: colors.text, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
   empty: { alignItems: 'center', padding: spacing.xl, gap: spacing.xs },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: colors.text },

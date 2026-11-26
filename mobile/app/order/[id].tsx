@@ -4,6 +4,8 @@ import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, View } f
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { SharePickup } from '../../src/components/SharePickup';
+import { DeliverToCard } from '../../src/features/orders/DeliverToCard';
+import { deliverTo } from '../../src/features/orders/deliverTo';
 import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
 import { canStartPayment, statusLabel } from '../../src/domain/payments';
 import { fetchMyPayments, paymentsEnabled, type MyPayment } from '../../src/features/payments/api';
@@ -204,6 +206,10 @@ export default function OrderScreen() {
             : 'You pay the seller directly unless paying in the app is offered below. ZedMarket does not hold payment.'}
         </Text>
       </View>
+      {(() => {
+        const d = deliverTo({ role, fulfilment: order.fulfilment, status: order.status, cancelKind: order.cancelKind, handedOverAt: order.handedOverAt, buyerName: order.buyerName, deliveryAddress: order.deliveryAddress, deliveryFee: order.deliveryFee, buyerNote: order.buyerNote });
+        return d ? <DeliverToCard info={d} /> : null;
+      })()}
       {role === 'buyer' && payOn && canStartPayment(order.status, 'buyer', orderPayments) ? (
         <Button title="Pay with mobile money" onPress={() => router.push(`/pay/${order.id}`)} />
       ) : null}
