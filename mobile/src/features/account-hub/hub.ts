@@ -106,7 +106,7 @@ export function businessSection(f: HubFacts): HubSection | null {
   if (roleCan(b.role, 'manage_branches')) items.push({ key: 'branches', title: 'Branches', subtitle: 'Your shops and pickup points', href: at('/business/manage/[id]/branches', id) });
   if (roleCan(b.role, 'view_team')) items.push({ key: 'team', title: 'Staff and permissions', subtitle: 'Who can do what', href: at('/business/manage/[id]/team', id) });
   if (roleCan(b.role, 'view_analytics')) items.push({ key: 'biz-analytics', title: 'Business analytics', subtitle: 'Sales and product performance', href: at('/analytics', { business: b.id }) });
-  if (b.role === 'owner' && !b.verified) items.push({ key: 'biz-verify', title: 'Verify this business', subtitle: 'Needed for a verified badge', href: at('/verify/business') });
+  if (b.role === 'owner' && !b.verified) items.push({ key: 'biz-verify', title: 'Verify this business', subtitle: 'Needed before you can sell. Creating a profile does not verify it', href: at('/verify/business') });
   return { key: 'business', title: `Business centre: ${b.name}`, items };
 }
 

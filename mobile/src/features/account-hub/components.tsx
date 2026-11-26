@@ -138,7 +138,7 @@ export function BusinessSummary({ business }: { business: HubBusiness }) {
         <Text style={styles.itemTitle} numberOfLines={1}>{business.name}</Text>
         <Text style={styles.muted}>Your role: {business.role}</Text>
       </View>
-      <Text style={[styles.pill, business.verified ? styles.pillOk : styles.pillWarn]}>{business.verified ? 'Verified business' : 'Not verified yet'}</Text>
+      <Text style={[styles.pill, business.verified ? styles.pillOk : styles.pillWarn]}>{business.verified ? 'Verified business' : 'Not verified yet: drafts only'}</Text>
     </View>
   );
 }
