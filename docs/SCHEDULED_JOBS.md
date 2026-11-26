@@ -50,3 +50,6 @@ Nothing runs these yet; they need a worker you provide (an Edge Function or scri
 - **Scan**: for each `verification_documents` row with `scan_status = 'pending'`, scan the stored file and call `verification_record_scan(document, 'clean' | 'infected' | 'failed')`. A file that is not `clean` can never be accepted or opened by staff. **A malware scanner is an external dependency and has not been chosen or connected.**
 - **Purge**: call `verification_documents_due(100)`, delete each returned `bucket`/`path` from storage, then call `verification_mark_deleted(array of ids)`. Dates come from `retention.verification_rejected_days` (30) and `retention.verification_approved_days` (365). Both functions are `service_role` only.
 - Application deadlines: `verification.info_request_days` (14). Escalation deadlines and overdue alerts arrive with the dashboard chunk.
+
+## Business application documents
+Closing a business (`business_close`) schedules its application documents for purge with the same retention worker as seller documents. The worker, and the malware scanner that moves documents from `pending` to `clean`, are still not built: until the scanner exists no business document can be opened by staff, so no business can be approved in production.
