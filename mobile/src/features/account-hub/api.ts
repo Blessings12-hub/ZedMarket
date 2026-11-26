@@ -1,3 +1,4 @@
+import { toSellerStatus } from '../../domain/sellerAccess';
 import { supabase } from '../../lib/supabase';
 import { fetchMyRoles } from '../admin/api';
 import { fetchMyListings } from '../listings/api';
@@ -6,6 +7,7 @@ import { countUnreadNotifications } from '../notifications/api';
 import { paymentsEnabled } from '../payments/api';
 import { pickOnePhoto, toAppeal, toDispute, type Appeal, type Dispute } from '../trust/api';
 import type { HubBusiness, HubFacts } from './hub';
+import { readSellerApplication } from './sellerSummary';
 
 export type HubProfile = {
   displayName: string;
@@ -21,7 +23,8 @@ export type HubProfile = {
 export async function fetchHub(userId: string): Promise<{ profile: HubProfile; facts: Omit<HubFacts, 'context'> }> {
   const [p, app, listings, roles, memberships, unreadN, unreadA, payOn, mine, requests] = await Promise.all([
     supabase.from('profiles').select('display_name, bio, avatar_path, verification_level, account_state, created_at, seller_status').eq('id', userId).single(),
-    supabase.rpc('seller_application_mine'),
+    // The seller part can fail on its own without breaking the rest of the hub.
+    readSellerApplication(() => supabase.rpc('seller_application_mine')),
     fetchMyListings(userId).catch(() => []),
     fetchMyRoles(userId).catch(() => []),
     supabase.from('business_members').select('role, business:businesses(id, name, slug, verification_status)').eq('user_id', userId),
@@ -32,6 +35,10 @@ export async function fetchHub(userId: string): Promise<{ profile: HubProfile; f
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('seller_id', userId).is('business_id', null).eq('status', 'requested'),
   ]);
   if (p.error) throw p.error;
+  // These counts are shown as zero when they fail, but the failure is logged, not hidden.
+  for (const [name, res] of [['business memberships', memberships], ['my open purchases', mine], ['requests to me', requests]] as const) {
+    if (res.error) console.warn(`[account hub] ${name} could not be loaded`, res.error);
+  }
   const r = p.data as { display_name: string; bio: string | null; avatar_path: string | null; verification_level: HubProfile['level']; account_state: HubProfile['state']; created_at: string; seller_status: HubFacts['sellerStatus'] };
 
   const rows = (memberships.data ?? []) as unknown as { role: HubBusiness['role']; business: { id: string; name: string; slug: string; verification_status: string } | null }[];
@@ -43,9 +50,10 @@ export async function fetchHub(userId: string): Promise<{ profile: HubProfile; f
     profile: { displayName: r.display_name, bio: r.bio ?? '', avatarPath: r.avatar_path, level: r.verification_level, state: r.account_state, createdAt: r.created_at },
     facts: {
       isStaff: roles.length > 0,
-      isSeller: r.seller_status === 'active',
-      sellerStatus: r.seller_status ?? 'none',
-      sellerApplication: ((app.data as { application: { status: HubFacts['sellerApplication'] } | null } | null)?.application?.status) ?? null,
+      isSeller: toSellerStatus(r.seller_status) === 'active',
+      sellerStatus: toSellerStatus(r.seller_status),
+      sellerApplication: app.status,
+      sellerApplicationError: app.error,
       paymentsOn: payOn,
       unreadNotifications: unreadN,
       unreadAlerts: unreadA,

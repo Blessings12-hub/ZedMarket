@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
@@ -9,13 +9,17 @@ import { SELLER_CLOSE } from '../../src/domain/closeAccount';
 import { refreshSellingAccess } from '../../src/features/seller/status';
 import * as api from '../../src/features/seller-onboarding/api';
 import {
-  DECLARATIONS, DOC_LABEL, EXPERIENCE, emptyForm, formOpen, missingBeforeSend, requiredDocs, showsSavedAnswers, SOURCING, STATUS_HELP, STATUS_LABEL,
-  type AppStatus, type Form,
+  DECLARATIONS, DOC_LABEL, EXPERIENCE, draftProblems, emptyForm, missingBeforeSend, requiredDocs, SOURCING, STATUS_HELP, STATUS_LABEL,
+  type Form,
 } from '../../src/features/seller-onboarding/domain';
+import { buildSellerScreen, formFromApplication } from '../../src/features/seller-onboarding/view';
 import { friendlyError } from '../../src/lib/errors';
+import { singleFlight } from '../../src/lib/singleFlight';
 import { colors, radius, spacing } from '../../src/theme';
 
 // Individual seller application. Anyone can open it; nobody can sell until support approves.
+// This screen must never crash and never silently show an empty page when something failed: every request has a loading
+// state, an error state with a retry, and an empty state for someone who has never applied.
 export default function SellerApplication() {
   const { userId } = useAuth();
   const router = useRouter();
@@ -24,117 +28,176 @@ export default function SellerApplication() {
   const [options, setOptions] = useState<Awaited<ReturnType<typeof api.fetchOptions>> | null>(null);
   const [agreement, setAgreement] = useState<{ version: number; title: string; body: string } | null>(null);
   const [reply, setReply] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  // Answers typed but not saved yet. A reload (after an upload, say) must not wipe them.
+  const dirty = useRef(false);
+  // A second tap while something is running is ignored.
+  const busyRef = useRef(false);
 
-  const load = useCallback(async () => {
-    try {
-      const [m, o, a] = await Promise.all([api.fetchMine(), api.fetchOptions(), api.fetchAgreement()]);
-      setMine(m);
-      setOptions(o);
-      setAgreement(a ?? null);
-      const x = m.application;
-      if (x && showsSavedAnswers(x.status as AppStatus)) {
-        setForm({
-          ...emptyForm(), legal_name: x.legal_name ?? '', nationality: x.nationality ?? '', is_adult: !!x.is_adult, id_type: x.id_type ?? 'nrc',
-          id_number: x.id_number ?? '', residential_address: x.residential_address ?? '', selling_location_id: x.selling_location_id ?? null,
-          category_ids: x.category_ids ?? [], sourcing_type: x.sourcing_type ?? '', sourcing_info: x.sourcing_info ?? '',
-          experience_level: x.experience_level ?? '', experience_info: x.experience_info ?? '',
-          expected_catalogue_size: x.expected_catalogue_size ? String(x.expected_catalogue_size) : '', returns_arrangements: x.returns_arrangements ?? '',
-          customer_service_arrangements: x.customer_service_arrangements ?? '', declarations: x.declarations ?? {},
-        });
-      } else {
-        setForm(emptyForm());
-      }
-      setError('');
-    } catch (e) {
-      setError(friendlyError(e));
-    }
-  }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Reopening the screen or pressing "Try again" while a load is running joins that load instead of starting another.
+  const loadOnce = useMemo(
+    () =>
+      singleFlight(async (): Promise<api.MyApplication | null> => {
+        setLoading(true);
+        try {
+          const [m, o, a] = await Promise.all([api.fetchMine(), api.fetchOptions(), api.fetchAgreement()]);
+          setMine(m);
+          setOptions(o);
+          setAgreement(a);
+          if (!dirty.current) setForm(formFromApplication(m));
+          setError('');
+          setLoadFailed(false);
+          return m;
+        } catch (e) {
+          console.error('[seller] could not load the seller screen', e);
+          setError(friendlyError(e));
+          setLoadFailed(true);
+          return null;
+        } finally {
+          setLoading(false);
+        }
+      }),
+    [],
+  );
+  useFocusEffect(useCallback(() => { void loadOnce(); }, [loadOnce]));
 
   const run = async (fn: () => Promise<unknown>, done: string) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError('');
     setMessage('');
     try {
       await fn();
       setMessage(done);
-      await load();
+      await loadOnce();
     } catch (e) {
+      console.error('[seller] action failed', e);
       setError(friendlyError(e));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
-  const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof Form>(k: K, v: Form[K]) => {
+    dirty.current = true;
+    setForm((f) => ({ ...f, [k]: v }));
+  };
+  // Say which answer is wrong before asking the server, so a draft never fails with a vague message.
+  const withValidForm = (action: () => void) => {
+    const problems = draftProblems(form);
+    if (problems.length > 0) {
+      setMessage('');
+      setError(problems.join(' '));
+      return;
+    }
+    action();
+  };
+  const saveForm = async () => {
+    await api.saveApplication(form);
+    dirty.current = false;
+  };
 
-  if (!mine && !error) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
-  if (!mine) return <View style={styles.center}><Notice tone="error">{error}</Notice></View>;
+  if (!mine) {
+    if (loading) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
+    return (
+      <View style={styles.center}>
+        <Notice tone="error">{error || 'We could not load your seller status.'}</Notice>
+        <Button title="Try again" onPress={() => void loadOnce()} />
+      </View>
+    );
+  }
 
+  const model = buildSellerScreen(mine);
   const app = mine.application;
-  const status = (app?.status ?? null) as AppStatus | null;
-  // The form is open for a first application, a draft, or a fresh start after a rejected, withdrawn or deleted one.
-  const editable = formOpen(status, mine.seller_status);
-  const kinds = mine.documents.filter((d) => d.scan !== 'infected').map((d) => d.kind);
-  const missing = missingBeforeSend(form, { agreementAccepted: !!app?.agreement_accepted, documentKinds: kinds, contactVerified: true });
-  const openRequests = mine.requests.filter((r) => r.status === 'open');
+  const status = model.status;
+  const missing = missingBeforeSend(form, { agreementAccepted: !!app?.agreement_accepted, documentKinds: model.documentKinds, contactVerified: true });
 
   async function closeAccount() {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError('');
+    setMessage('');
+    const copy = model.close ?? SELLER_CLOSE;
     try {
       await api.closeSellerAccount();
       if (userId) await refreshSellingAccess(userId);
-      router.replace('/(tabs)/account');
+      // Read back what the database now says, instead of assuming.
+      const fresh = await loadOnce();
+      if (fresh && fresh.seller_status === 'none') {
+        router.replace({ pathname: '/(tabs)/account', params: { notice: 'seller_closed' } });
+      } else {
+        setMessage(copy.done);
+      }
     } catch (e) {
+      console.error('[seller] closing the selling account failed', e);
       setError(friendlyError(e));
+    } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
 
-  if (mine.seller_status === 'active') {
+  if (model.mode === 'approved') {
+    const copy = model.close ?? SELLER_CLOSE;
     return (
       <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+        {message ? <Notice>{message}</Notice> : null}
+        {loadFailed ? <Notice tone="error">{error}</Notice> : null}
         <View style={styles.card}>
           <Text style={styles.title}>You are an approved seller</Text>
           <Text style={styles.text}>Your selling tools are in the Account tab.</Text>
         </View>
-        <SectionTitle>{SELLER_CLOSE.heading}</SectionTitle>
-        <DangerConfirm copy={SELLER_CLOSE} busy={busy} error={error} onConfirm={closeAccount} />
+        <SectionTitle>{copy.heading}</SectionTitle>
+        <DangerConfirm copy={copy} busy={busy} error={loadFailed ? undefined : error} onConfirm={closeAccount} />
       </ScrollView>
     );
   }
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      {error ? <Notice tone="error">{error}</Notice> : null}
+      {loading ? <ActivityIndicator color={colors.primary} /> : null}
+      {error && !model.close ? <Notice tone="error">{error}</Notice> : null}
+      {error && model.close && loadFailed ? <Notice tone="error">{error}</Notice> : null}
+      {loadFailed ? <Button title="Try again" variant="secondary" onPress={() => void loadOnce()} /> : null}
       {message ? <Notice>{message}</Notice> : null}
+      {model.closedNote ? <Notice>{model.closedNote}</Notice> : null}
       {status ? (
         <View style={styles.card}>
           <Text style={styles.title}>{STATUS_LABEL[status]}</Text>
           <Text style={styles.text}>{STATUS_HELP[status]}</Text>
           {app?.decision_reason && (status === 'rejected' || status === 'suspended' || status === 'revoked') ? <Text style={styles.reason}>{app.decision_reason}</Text> : null}
         </View>
-      ) : (
-        <Notice>Buying never needs this. Apply only if you want to sell your own products. Your documents are seen only by our verification team and deleted after the retention period.</Notice>
-      )}
+      ) : model.isFirstTime ? (
+        <Notice>Buying never needs this. Apply only if you want to sell your own products. Your documents are seen only by our verification team and deleted after the retention period. You have not started an application.</Notice>
+      ) : null}
 
-      {openRequests.map((r) => (
+      {model.close ? (
+        <>
+          <SectionTitle>{model.close.heading}</SectionTitle>
+          <DangerConfirm copy={model.close} busy={busy} error={loadFailed ? undefined : error} onConfirm={closeAccount} />
+        </>
+      ) : null}
+
+      {model.openRequests.map((r) => (
         <View key={r.id} style={styles.card}>
           <Text style={styles.title}>The team asked</Text>
           <Text style={styles.text}>{r.message}</Text>
           {r.document_kinds.map((k) => (
-            <Button key={k} title={`Upload: ${DOC_LABEL[k] ?? k}`} variant="secondary" disabled={busy}
-              onPress={() => run(() => api.uploadDocument(userId!, app!.id, k), 'Uploaded. It is checked for safety before anyone sees it.')} />
+            <Button key={k} title={`Upload: ${DOC_LABEL[k] ?? k}`} variant="secondary" disabled={busy || !userId || !app}
+              onPress={() => app && userId && run(() => api.uploadDocument(userId, app.id, k), 'Uploaded. It is checked for safety before anyone sees it.')} />
           ))}
           <Field label="Your answer" value={reply} onChangeText={setReply} multiline />
           <Button title="Send answer" disabled={busy} onPress={() => run(async () => { await api.respondToRequest(r.id, reply); setReply(''); }, 'Answer sent.')} />
         </View>
       ))}
 
-      {editable ? (
+      {model.editable ? (
         <>
           <SectionTitle>About you</SectionTitle>
           <Field label="Full legal name" value={form.legal_name} onChangeText={(v) => set('legal_name', v)} />
@@ -182,11 +245,11 @@ export default function SellerApplication() {
               <Switch value={!!form.declarations[d.key]} onValueChange={(v) => set('declarations', { ...form.declarations, [d.key]: v })} />
             </View>
           ))}
-          <Button title="Save draft" variant="secondary" loading={busy} onPress={() => run(() => api.saveApplication(form), 'Draft saved.')} />
+          <Button title="Save draft" variant="secondary" loading={busy} disabled={busy} onPress={() => withValidForm(() => void run(saveForm, 'Draft saved.'))} />
         </>
       ) : null}
 
-      {app && status === 'draft' && editable ? (
+      {app && model.showDocuments ? (
         <>
           <SectionTitle>Documents</SectionTitle>
           {requiredDocs(form.id_type).map((k) => {
@@ -195,8 +258,8 @@ export default function SellerApplication() {
               <View key={k} style={styles.card}>
                 <Text style={styles.title}>{DOC_LABEL[k]}</Text>
                 <Text style={styles.text}>{d ? (d.scan === 'clean' ? 'Uploaded and checked' : 'Uploaded. Being checked for safety') : 'Not uploaded'}</Text>
-                <Button title={d ? 'Replace' : 'Upload'} variant="secondary" disabled={busy}
-                  onPress={() => run(() => api.uploadDocument(userId!, app.id, k), 'Uploaded.')} />
+                <Button title={d ? 'Replace' : 'Upload'} variant="secondary" disabled={busy || !userId}
+                  onPress={() => userId && run(() => api.uploadDocument(userId, app.id, k), 'Uploaded.')} />
               </View>
             );
           })}
@@ -206,7 +269,8 @@ export default function SellerApplication() {
             <Button title="I accept the seller agreement" variant="secondary" disabled={busy} onPress={() => run(() => api.acceptAgreement(agreement.version), 'Agreement accepted.')} />
           ) : null}
           {missing.length > 0 ? <Notice tone="warning">Still needed: {missing.join('; ')}.</Notice> : null}
-          <Button title="Send application" loading={busy} disabled={missing.length > 0 || busy} onPress={() => run(async () => { await api.saveApplication(form); await api.submitApplication(); }, 'Sent. We will tell you when it moves.')} />
+          <Button title="Send application" loading={busy} disabled={missing.length > 0 || busy}
+            onPress={() => withValidForm(() => void run(async () => { await saveForm(); await api.submitApplication(); }, 'Sent. We will tell you when it moves.'))} />
           <Button title="Withdraw application" variant="danger" disabled={busy} onPress={() => run(() => api.withdrawApplication(), 'Application withdrawn.')} />
         </>
       ) : null}

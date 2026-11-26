@@ -1,23 +1,27 @@
 import { supabase } from '../../lib/supabase';
 import { pickOnePhoto } from '../trust/api';
 import type { Form } from './domain';
+import { loadMine, type MyApplication } from './mine';
 
-export type MyApplication = {
-  seller_status: 'none' | 'active' | 'suspended' | 'revoked';
-  application: (Record<string, any> & { id: string; status: string; required_documents: string[]; agreement_accepted: boolean }) | null;
-  documents: { id: string; kind: string; scan: string; review: string; note: string | null; at: string }[];
-  requests: { id: string; message: string; document_kinds: string[]; status: string; due_at: string | null; created_at: string }[];
-  history: { event: string; to_status: string | null; note: string | null; at: string }[];
-};
+export type { MyApplication } from './mine';
 
+// Every call goes through here so the real error is always logged. The screens show a readable message from
+// friendlyError; the log keeps the technical one for whoever is fixing it.
 async function rpc<T>(name: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(name, args);
-  if (error) throw error;
+  if (error) {
+    console.error(`[seller] ${name} failed`, error);
+    throw error;
+  }
   return data as T;
 }
 
-export const fetchMine = () => rpc<MyApplication>('seller_application_mine');
-export const fetchAgreement = async () => (await rpc<{ version: number; title: string; body: string }[]>('seller_agreement_current'))[0];
+// Never returns a made-up empty answer for a failed call: a failure throws, and the screen shows it with a retry.
+export const fetchMine = (): Promise<MyApplication> => loadMine(() => supabase.rpc('seller_application_mine'));
+export const fetchAgreement = async (): Promise<{ version: number; title: string; body: string } | null> => {
+  const rows = await rpc<{ version: number; title: string; body: string }[] | null>('seller_agreement_current');
+  return Array.isArray(rows) ? rows[0] ?? null : null;
+};
 export const saveApplication = (f: Partial<Form>) =>
   rpc<string>('seller_application_save', {
     p_data: { ...f, expected_catalogue_size: f.expected_catalogue_size ? Number(f.expected_catalogue_size) : undefined },
@@ -25,7 +29,7 @@ export const saveApplication = (f: Partial<Form>) =>
 export const acceptAgreement = (version: number) => rpc<void>('seller_agreement_accept', { p_version: version });
 export const submitApplication = () => rpc<void>('seller_application_submit');
 export const withdrawApplication = () => rpc<void>('seller_application_withdraw');
-// Deletes my selling account. Only an approved seller can; the database refuses while orders are open.
+// Closes my selling account (I stay a buyer). The database refuses while orders are open and says which ones.
 export const closeSellerAccount = (reason?: string) => rpc<void>('seller_account_close', { p_reason: reason ?? null });
 export const respondToRequest = (id: string, text: string) => rpc<void>('seller_application_respond', { p_request: id, p_response: text });
 
@@ -48,6 +52,15 @@ export async function fetchOptions() {
     supabase.from('categories').select('id, name').order('name'),
     supabase.from('locations').select('id, area, town').order('town').order('area', { nullsFirst: true }),
   ]);
+  // A failed list is an error the screen shows with a retry, not an empty list that quietly blocks the form.
+  if (c.error) {
+    console.error('[seller] loading categories failed', c.error);
+    throw c.error;
+  }
+  if (l.error) {
+    console.error('[seller] loading locations failed', l.error);
+    throw l.error;
+  }
   return { categories: (c.data ?? []) as { id: number; name: string }[], locations: (l.data ?? []) as { id: number; area: string | null; town: string }[] };
 }
 

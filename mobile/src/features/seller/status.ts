@@ -32,8 +32,10 @@ export async function refreshSellingAccess(userId: string): Promise<void> {
     ]);
     if (p.error) throw p.error;
     setSellingAccess({ status: toSellerStatus((p.data as { seller_status?: unknown } | null)?.seller_status), hasBusiness: (m.count ?? 0) > 0 });
-  } catch {
+  } catch (e) {
     // A slow or failed check never breaks the app. Keep the last known answer; with none, stay closed and offer a retry.
+    // The real error is logged, not hidden.
+    console.warn('[seller] could not refresh selling access', e);
     set({ ...snapshot, failed: !snapshot.loaded });
   }
 }

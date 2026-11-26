@@ -20,6 +20,8 @@ export type HubFacts = {
   sellerStatus: 'none' | 'active' | 'suspended' | 'revoked';
   // Where my latest individual-seller application stands, if I have one.
   sellerApplication: SellerApplicationState | null;
+  // Set when my seller application could not be read. The rest of the hub still works; this explains the missing part.
+  sellerApplicationError?: string | null;
   paymentsOn: boolean;
   unreadNotifications: number;
   unreadAlerts: number;
