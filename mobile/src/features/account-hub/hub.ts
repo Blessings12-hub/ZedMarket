@@ -7,7 +7,7 @@ export type HubItem = { key: string; title: string; subtitle?: string; href: Hub
 // `note` is a short line shown under the section title, used to explain why a section exists.
 export type HubSection = { key: string; title: string; note?: string; items: HubItem[] };
 
-export type SellerApplicationState = 'draft' | 'submitted' | 'under_review' | 'additional_information_required' | 'approved' | 'rejected' | 'suspended' | 'revoked';
+export type SellerApplicationState = 'draft' | 'submitted' | 'under_review' | 'additional_information_required' | 'approved' | 'rejected' | 'suspended' | 'revoked' | 'closed';
 
 export type HubBusiness = { id: string; name: string; slug: string; role: BusinessRole; verified: boolean };
 

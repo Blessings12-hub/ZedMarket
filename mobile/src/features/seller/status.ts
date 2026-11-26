@@ -25,16 +25,17 @@ export function clearSellingAccess() {
 }
 
 export async function refreshSellingAccess(userId: string): Promise<void> {
-  const [p, m] = await Promise.all([
-    supabase.from('profiles').select('seller_status').eq('id', userId).single(),
-    supabase.from('business_members').select('business_id', { count: 'exact', head: true }).eq('user_id', userId),
-  ]);
-  if (p.error) {
-    // Keep the last known answer when there is one; otherwise stay closed and say we could not check.
+  try {
+    const [p, m] = await Promise.all([
+      supabase.from('profiles').select('seller_status').eq('id', userId).single(),
+      supabase.from('business_members').select('business_id', { count: 'exact', head: true }).eq('user_id', userId),
+    ]);
+    if (p.error) throw p.error;
+    setSellingAccess({ status: toSellerStatus((p.data as { seller_status?: unknown } | null)?.seller_status), hasBusiness: (m.count ?? 0) > 0 });
+  } catch {
+    // A slow or failed check never breaks the app. Keep the last known answer; with none, stay closed and offer a retry.
     set({ ...snapshot, failed: !snapshot.loaded });
-    return;
   }
-  setSellingAccess({ status: toSellerStatus((p.data as { seller_status?: unknown } | null)?.seller_status), hasBusiness: (m.count ?? 0) > 0 });
 }
 
 const subscribe = (l: () => void) => {

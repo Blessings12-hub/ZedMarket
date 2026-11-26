@@ -122,6 +122,9 @@ export async function fetchMyInvitations(): Promise<Invitation[]> {
   return rows.map((r) => ({ id: r.id, businessName: r.business_name, role: r.role, invitedBy: r.invited_by_name, expiresAt: r.expires_at }));
 }
 
+// Deletes a business for good. Only the owner can; the database refuses while orders are open.
+export const closeBusiness = (businessId: string, reason?: string) => rpc<void>('business_close', { p_business: businessId, p_reason: reason ?? null });
+
 export const respondToInvitation = (id: string, accept: boolean) => rpc<void>('respond_invitation', { p_invitation: id, p_accept: accept });
 
 // ---------------------------------------------------------------------------

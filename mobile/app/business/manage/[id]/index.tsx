@@ -1,15 +1,39 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useState } from 'react';
+
+import { useAuth } from '../../../../src/auth/AuthProvider';
+import { DangerConfirm } from '../../../../src/components/DangerConfirm';
 import { Button, Notice, SectionTitle } from '../../../../src/components/ui';
 import { ROLE_EXPLAINED, ROLE_LABELS, roleCan } from '../../../../src/domain/business';
+import { BUSINESS_CLOSE } from '../../../../src/domain/closeAccount';
+import { closeBusiness } from '../../../../src/features/business/api';
 import { useBusinessAccess } from '../../../../src/features/business/useAccess';
+import { refreshSellingAccess } from '../../../../src/features/seller/status';
+import { friendlyError } from '../../../../src/lib/errors';
 import { colors, spacing } from '../../../../src/theme';
 
 export default function BusinessDashboard() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { role, name, slug, loading } = useBusinessAccess(id);
+  const { userId } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function deleteBusiness() {
+    setBusy(true);
+    setError('');
+    try {
+      await closeBusiness(String(id));
+      if (userId) await refreshSellingAccess(userId);
+      router.replace('/(tabs)/account');
+    } catch (e) {
+      setError(friendlyError(e));
+      setBusy(false);
+    }
+  }
   const go = (path: string) => router.push({ pathname: path as any, params: { id } });
 
   if (loading) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
@@ -48,6 +72,13 @@ export default function BusinessDashboard() {
         <>
           <SectionTitle>People</SectionTitle>
           <Button title={roleCan(role, 'manage_team') ? 'Team and invitations' : 'Team'} variant="secondary" onPress={() => go('/business/manage/[id]/team')} />
+        </>
+      ) : null}
+
+      {role === 'owner' ? (
+        <>
+          <SectionTitle>{BUSINESS_CLOSE.heading}</SectionTitle>
+          <DangerConfirm copy={BUSINESS_CLOSE} busy={busy} error={error} onConfirm={deleteBusiness} />
         </>
       ) : null}
     </ScrollView>

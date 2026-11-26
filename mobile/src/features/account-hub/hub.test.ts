@@ -166,3 +166,11 @@ test('reviews wording only mentions reviews about you for sellers', () => {
   assert.equal(sub(base), 'Reviews you have written');
   assert.equal(sub({ ...base, isSeller: true, sellerStatus: 'active' }), 'Reviews you wrote and reviews about you');
 });
+
+test('someone who deleted their selling account is a buyer again and can apply from the start', () => {
+  const hub = buildHub({ ...base, sellerStatus: 'none', sellerApplication: 'closed' });
+  assert.ok(!hub.some((x) => x.key === 'selling'));
+  const item = hub.flatMap((x) => x.items).find((i) => i.key === 'become-seller');
+  assert.equal(item?.badge, 'Application required');
+  assert.equal(item?.href.pathname, '/verify/seller');
+});
