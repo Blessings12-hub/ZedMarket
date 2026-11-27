@@ -45,6 +45,7 @@ export function activitySection(f: HubFacts): HubSection {
     { key: 'notifications', title: 'Notifications', subtitle: 'Updates about your orders and account', href: at('/notifications'), badge: count(f.unreadNotifications, 'new') },
   ];
   if (f.paymentsOn) items.push({ key: 'payments', title: 'Payments', subtitle: 'Payments made through ZedMarket', href: at('/payments') });
+  items.push({ key: 'announcements', title: 'News and announcements', subtitle: 'Notices from the ZedMarket team', href: at('/announcements') });
   items.push({ key: 'cases', title: 'Disputes, appeals and reports', subtitle: 'Where each of your cases stands', href: at('/account/cases') });
   return { key: 'activity', title: 'Activity', items };
 }

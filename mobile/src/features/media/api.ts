@@ -1,3 +1,4 @@
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
 import { readPhoto, uploadObject } from '../../lib/storage';
@@ -60,21 +61,43 @@ export async function assetUrl(path: string): Promise<string | null> {
   return data.signedUrl;
 }
 
-// Pick, check, upload to the person's own folder, then register so the database checks the real file.
-export async function uploadAsset(userId: string, meta: { title: string; description: string; category: string }): Promise<'uploaded' | 'cancelled'> {
-  const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], quality: 1, allowsMultipleSelection: false });
-  if (res.canceled || !res.assets[0]) return 'cancelled';
-  const a = res.assets[0];
-  const mime = a.mimeType ?? (a.type === 'video' ? 'video/mp4' : 'image/jpeg');
-  const problem = uploadProblem({ mime, size: a.fileSize });
+// Pick, check, upload to the person's own folder, register so the database checks the real file, then ask for the safety check.
+// The safety check can fail without losing the upload: the file just stays "waiting" and can be checked later.
+export async function uploadAsset(userId: string, meta: { title: string; description: string; category: string }, source: 'gallery' | 'pdf' = 'gallery'): Promise<'uploaded' | 'cancelled'> {
+  let uri: string; let mime: string; let size: number | null | undefined;
+  if (source === 'pdf') {
+    const res = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true, multiple: false });
+    if (res.canceled || !res.assets[0]) return 'cancelled';
+    const a = res.assets[0];
+    uri = a.uri; mime = a.mimeType ?? 'application/pdf'; size = a.size;
+  } else {
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], quality: 1, allowsMultipleSelection: false });
+    if (res.canceled || !res.assets[0]) return 'cancelled';
+    const a = res.assets[0];
+    uri = a.uri; mime = a.mimeType ?? (a.type === 'video' ? 'video/mp4' : 'image/jpeg'); size = a.fileSize;
+  }
+  const problem = uploadProblem({ mime, size });
   if (problem) throw new Error(problem);
   const ext = extensionFor(mime);
   if (!ext) throw new Error('Upload a JPG, PNG, WebP, MP4, MOV or PDF file.');
-  const body = await readPhoto(a.uri);
+  const body = await readPhoto(uri);
   const path = `${userId}/${Date.now()}.${ext}`;
   await uploadObject('media-library', path, body, mime);
-  await rpc<string>('media_asset_register', { p_title: meta.title, p_description: meta.description || null, p_category: meta.category, p_path: path });
+  const id = await rpc<string>('media_asset_register', { p_title: meta.title, p_description: meta.description || null, p_category: meta.category, p_path: path });
+  await scanAsset(id);
   return 'uploaded';
+}
+
+// Asks the media-scan function to check the stored file. Never throws: a failure leaves the file "waiting for the safety check".
+export async function scanAsset(id: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('media-scan', { body: { asset_id: id } });
+  if (error) console.warn('[media] safety check could not run yet', error);
+}
+
+// Removes stored files whose record is already deleted (clean-up after a failed removal).
+export async function purgeDeleted(): Promise<void> {
+  const { error } = await supabase.functions.invoke('media-scan', { body: { purge: true } });
+  if (error) console.warn('[media] clean-up could not run yet', error);
 }
 
 export const updateAsset = (id: string, title: string, description: string, category: string, note?: string) =>
@@ -85,7 +108,10 @@ export const archiveAsset = (id: string, archive: boolean) => rpc<void>('media_a
 export async function deleteAsset(id: string, confirm: string): Promise<void> {
   const path = await rpc<string>('media_asset_delete', { p_asset: id, p_confirm: confirm });
   const { error } = await supabase.storage.from('media-library').remove([path]);
-  if (error) console.warn('[media] the record was deleted but the stored file could not be removed yet', error);
+  if (error) {
+    console.warn('[media] the record was deleted but the stored file could not be removed yet', error);
+    await purgeDeleted(); // second try by the server, which also clears older leftovers
+  }
 }
 
 // ----- content -----
@@ -196,3 +222,7 @@ export const resetPermission = (userId: string, permission: string) => rpc<void>
 export async function listPermissionCatalogue(): Promise<{ key: string; description: string }[]> {
   return check<{ key: string; description: string }[]>(await supabase.from('staff_permissions').select('key, description').eq('department', 'media').order('key'), 'permission catalogue');
 }
+
+// ----- public announcements (everyone, including guests) -----
+export type PublicAnnouncement = { id: string; kind: string; title: string; body: string | null; published_at: string };
+export const fetchAnnouncements = () => rpc<PublicAnnouncement[]>('media_public_announcements', { p_limit: 20 });

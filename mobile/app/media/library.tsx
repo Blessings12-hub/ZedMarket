@@ -52,9 +52,11 @@ export default function Library() {
               <View style={s.row}>
                 {CATEGORIES.map((c) => <Chip key={c.key} label={c.label} selected={category === c.key} onPress={() => setCategory(c.key)} />)}
               </View>
-              <Button title="Choose a file and upload" loading={busy} disabled={title.trim().length < 2 || !userId}
-                onPress={() => void run(() => uploadAsset(userId!, { title: title.trim(), description: '', category }), 'Uploaded. It will be usable once the safety check passes.', () => setTitle(''))} />
-              <Text style={s.meta}>Images up to 10 MB and videos up to 50 MB. Files are checked before they can be published.</Text>
+              <Button title="Choose a photo or video" loading={busy} disabled={title.trim().length < 2 || !userId}
+                onPress={() => void run(() => uploadAsset(userId!, { title: title.trim(), description: '', category }, 'gallery'), 'Uploaded. It can be published once the safety check passes.', () => setTitle(''))} />
+              <Button title="Choose a PDF" variant="secondary" loading={busy} disabled={title.trim().length < 2 || !userId}
+                onPress={() => void run(() => uploadAsset(userId!, { title: title.trim(), description: '', category }, 'pdf'), 'Uploaded. It can be published once the safety check passes.', () => setTitle(''))} />
+              <Text style={s.meta}>Images up to 10 MB, PDFs up to 20 MB and videos up to 50 MB. Every file is checked before it can be published.</Text>
             </View>
           ) : null}
           {(list.data ?? []).map((a) => (

@@ -76,6 +76,7 @@ function AuthGate() {
       <Stack.Screen name="dispute/open" options={{ title: 'Report a problem' }} />
       <Stack.Screen name="dispute/[id]" options={{ title: 'Dispute' }} />
       <Stack.Screen name="appeal" options={{ title: 'Appeal a decision' }} />
+      <Stack.Screen name="announcements" options={{ title: 'News and announcements' }} />
       <Stack.Screen name="media/index" options={{ title: 'Media Department' }} />
       <Stack.Screen name="media/library" options={{ title: 'Media Library' }} />
       <Stack.Screen name="media/studio" options={{ title: 'Content Studio' }} />
