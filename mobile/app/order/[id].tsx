@@ -10,6 +10,7 @@ import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
 import { canStartPayment, statusLabel } from '../../src/domain/payments';
 import { fetchMyPayments, paymentsEnabled, type MyPayment } from '../../src/features/payments/api';
 import { formatKwacha } from '../../src/domain/money';
+import { parseHandedOver, quantityLine, suggestBranch } from '../../src/features/orders/quantity';
 import {
   actionLabel,
   availableActions,
@@ -27,6 +28,8 @@ import {
   cancelOrder,
   completeOrder,
   confirmOrder,
+  fetchBranchStock,
+  type BranchStockRow,
   declineOrder,
   fetchOrder,
   fetchOrderEvents,
@@ -51,6 +54,9 @@ export default function OrderScreen() {
   const [orderPayments, setOrderPayments] = useState<MyPayment[]>([]);
   const [payOn, setPayOn] = useState(false);
   const [fee, setFee] = useState('');
+  const [handed, setHanded] = useState('');
+  const [branches, setBranches] = useState<BranchStockRow[]>([]);
+  const [branchId, setBranchId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -69,6 +75,13 @@ export default function OrderScreen() {
       setEvents(ev);
       setReviewed(done.has(id));
       setReceipt(rc);
+      if (o.status === 'requested' && o.buyerId !== userId) {
+        const rows = await fetchBranchStock(o.listingId).catch((e) => { console.error('[order] branch stock failed', e); return [] as BranchStockRow[]; });
+        setBranches(rows);
+        setBranchId((cur) => (cur && rows.some((b) => b.id === cur) ? cur : suggestBranch(rows.map((b) => ({ id: b.id, name: b.name, available: b.available })), o.quantity)));
+      } else {
+        setBranches([]);
+      }
       setOrderPayments(await fetchMyPayments(id).catch(() => [] as MyPayment[]));
       setPayOn(await paymentsEnabled().catch(() => false));
       setError('');
@@ -120,13 +133,22 @@ export default function OrderScreen() {
       }
       feeAmount = parsed.fee;
     }
+    let handedQty: number | null = null;
+    if (action === 'handover') {
+      const h = parseHandedOver(handed, order.quantity);
+      if ('error' in h) {
+        setError(h.error);
+        return;
+      }
+      handedQty = h.quantity;
+    }
     setBusy(true);
     setError('');
     try {
-      if (action === 'confirm') await confirmOrder(order.id, feeAmount);
+      if (action === 'confirm') await confirmOrder(order.id, feeAmount, branches.length > 0 ? branchId : null);
       else if (action === 'decline') await declineOrder(order.id, reason);
       else if (action === 'cancel') await cancelOrder(order.id, reason);
-      else if (action === 'handover') await markHandedOver(order.id);
+      else if (action === 'handover') await markHandedOver(order.id, handedQty);
       else if (action === 'complete') await completeOrder(order.id);
       await load();
     } catch (e) {
@@ -188,7 +210,8 @@ export default function OrderScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.line}>Item {formatKwacha(order.price)}</Text>
+        <Text style={styles.line}>Item {formatKwacha(order.price)}{order.quantity > 1 || order.quantityDelivered !== null ? ' each' : ''}</Text>
+        {quantityLine(order.quantity, order.quantityDelivered) ? <Text style={styles.line}>{quantityLine(order.quantity, order.quantityDelivered)}</Text> : null}
         {order.fulfilment === 'delivery' ? (
           <Text style={styles.line}>
             Delivery fee {order.confirmedAt || order.deliveryFee > 0 ? formatKwacha(order.deliveryFee) : 'to be set by the seller'}
@@ -231,6 +254,17 @@ export default function OrderScreen() {
           keyboardType="decimal-pad"
           placeholder="For example 50"
         />
+      ) : null}
+      {role === 'seller' && actions.includes('confirm') && branches.length > 0 ? (
+        <View style={styles.card}>
+          <Text style={styles.line}>Fill this order from which branch?</Text>
+          {branches.map((b) => (
+            <Button key={b.id} title={`${b.name}: ${b.available} free`} variant={branchId === b.id ? 'primary' : 'secondary'} disabled={busy || b.available < order.quantity} onPress={() => setBranchId(b.id)} />
+          ))}
+        </View>
+      ) : null}
+      {role === 'seller' && actions.includes('handover') && order.quantity > 1 ? (
+        <Field label={`How many were handed over? (leave empty for all ${order.quantity})`} value={handed} onChangeText={(v) => setHanded(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
       ) : null}
       {needsReason ? <Field label="Reason (optional)" value={reason} onChangeText={setReason} maxLength={300} /> : null}
 
