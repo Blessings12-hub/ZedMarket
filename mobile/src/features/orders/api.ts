@@ -16,6 +16,8 @@ export type Order = {
   price: number;
   deliveryFee: number;
   total: number;
+  quantity: number;
+  quantityDelivered: number | null;
   fulfilment: Fulfilment;
   deliveryAddress: string | null;
   pickupText: string | null;
@@ -52,6 +54,8 @@ type RawOrder = {
   item_price_zmw: number;
   delivery_fee_zmw: number;
   total_zmw: number;
+  quantity?: number;
+  quantity_delivered?: number | null;
   fulfilment: Fulfilment;
   delivery_address: string | null;
   pickup_text: string | null;
@@ -81,6 +85,8 @@ function toOrder(r: RawOrder): Order {
     price: Number(r.item_price_zmw),
     deliveryFee: Number(r.delivery_fee_zmw),
     total: Number(r.total_zmw),
+    quantity: Number(r.quantity ?? 1) || 1,
+    quantityDelivered: r.quantity_delivered == null ? null : Number(r.quantity_delivered),
     fulfilment: r.fulfilment,
     deliveryAddress: r.delivery_address,
     pickupText: r.pickup_text,
@@ -105,7 +111,7 @@ async function call(fn: string, args: Record<string, unknown>): Promise<Order> {
 
 export const requestToBuy = (
   listingId: string,
-  options: { fulfilment: Fulfilment; address: string; note: string; locationId?: number | null; savedAddressId?: string | null } = { fulfilment: 'collection', address: '', note: '' },
+  options: { fulfilment: Fulfilment; address: string; note: string; locationId?: number | null; savedAddressId?: string | null; quantity?: number } = { fulfilment: 'collection', address: '', note: '' },
 ) =>
   call('create_order', {
     p_listing_id: listingId,
@@ -114,15 +120,33 @@ export const requestToBuy = (
     p_note: options.note.trim() || null,
     p_delivery_location_id: options.fulfilment === 'delivery' ? options.locationId ?? null : null,
     p_saved_address: options.fulfilment === 'delivery' ? options.savedAddressId ?? null : null,
+    p_quantity: options.quantity ?? 1,
   });
 
-export const confirmOrder = (orderId: string, deliveryFee: number) =>
-  call('confirm_order', { p_order_id: orderId, p_delivery_fee: deliveryFee });
+export const confirmOrder = (orderId: string, deliveryFee: number, branchId?: string | null) =>
+  call('confirm_order', { p_order_id: orderId, p_delivery_fee: deliveryFee, p_branch: branchId ?? null });
 export const declineOrder = (orderId: string, reason: string) =>
   call('decline_order', { p_order_id: orderId, p_reason: reason.trim() || null });
 export const cancelOrder = (orderId: string, reason: string) =>
   call('cancel_order', { p_order_id: orderId, p_reason: reason.trim() || null });
-export const markHandedOver = (orderId: string) => call('mark_handed_over', { p_order_id: orderId });
+export const markHandedOver = (orderId: string, quantity?: number | null) =>
+  call('mark_handed_over', { p_order_id: orderId, p_quantity: quantity ?? null });
+
+// How many a buyer can order right now (null for a one-off item). A failed lookup is an error, never "unlimited".
+export async function fetchStockInfo(listingId: string): Promise<number | null> {
+  const { data, error } = await supabase.rpc('listing_stock_info', { p_listing: listingId });
+  if (error) throw error;
+  return data == null ? null : Number(data);
+}
+
+export type BranchStockRow = { id: string; name: string; quantity: number; reserved: number; available: number };
+// For the seller side only: the database refuses anyone who is not a member of the business.
+export async function fetchBranchStock(listingId: string): Promise<BranchStockRow[]> {
+  const { data, error } = await supabase.rpc('branch_stock', { p_listing: listingId });
+  if (error) throw error;
+  if (!Array.isArray(data)) return [];
+  return data.map((r: any) => ({ id: r.branch_id, name: r.branch_name, quantity: Number(r.quantity), reserved: Number(r.reserved), available: Number(r.available) }));
+}
 export const completeOrder = (orderId: string) => call('complete_order', { p_order_id: orderId });
 
 export async function listOrders(): Promise<Order[]> {
@@ -164,4 +188,12 @@ export async function isListingReserved(listingId: string): Promise<boolean> {
   const { data, error } = await supabase.rpc('listing_is_reserved', { p_listing_id: listingId });
   if (error) throw error;
   return data === true;
+}
+
+export async function setBranchStock(listingId: string, branchId: string, quantity: number, note: string): Promise<void> {
+  const { error } = await supabase.rpc('set_branch_stock', { p_listing: listingId, p_branch: branchId, p_quantity: quantity, p_note: note.trim() || null });
+  if (error) {
+    console.error('[stock] set_branch_stock failed', error);
+    throw error;
+  }
 }
