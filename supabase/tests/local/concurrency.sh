@@ -276,6 +276,56 @@ for i in $(seq 1 "$N"); do
   [ "$qty" = "0" ] && [ "$st" = "unavailable" ] || fail "s7 item $i: quantity $qty, listing $st (want 0 and unavailable)"
 done
 
+echo "Scenario Q1: three buyers each want 2 of 5 and the seller confirms all three at the same moment (migration 0031)"
+plan s8 none
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s8' and slot=$i")
+  scratch -c "update public.listings set business_id='20000000-0000-0000-0000-0000000000aa' where id='$lid'; insert into public.listing_stock (listing_id, business_id, quantity) values ('$lid','20000000-0000-0000-0000-0000000000aa', 5);
+    insert into public.orders (listing_id, buyer_id, seller_id, business_id, item_title, item_price_zmw, buyer_name, seller_name, expires_at, quantity)
+    select '$lid', u, '$A', '20000000-0000-0000-0000-0000000000aa', 'Race item', 500, 'Buyer', 'Seller', now() + interval '1 day', 2 from unnest(array['$B','$C','$D']::uuid[]) u;" >/dev/null
+done
+race
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s8' and slot=$i")
+  for o in $(q "select id from public.orders where listing_id='$lid'"); do
+    worker "s8_${i}_$o" "$A" "select public.confirm_order('$o', 0);"
+  done
+done
+wait_for_workers
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s8' and slot=$i")
+  conf=$(q "select count(*) from public.orders where listing_id='$lid' and status='confirmed'")
+  res=$(q "select coalesce(sum(quantity),0) from public.listing_reservations where listing_id='$lid'")
+  [ "$conf" = "2" ] && [ "$res" = "4" ] || fail "s8 item $i: confirmed=$conf reserved units=$res (want 2 and 4)"
+done
+
+echo "Scenario Q2: two partly-filled orders (3 ordered, 2 handed over each, 6 in stock) complete at the same moment and take stock off together"
+plan s9 none
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s9' and slot=$i")
+  scratch -c "update public.listings set business_id='20000000-0000-0000-0000-0000000000aa' where id='$lid'; insert into public.listing_stock (listing_id, business_id, quantity) values ('$lid','20000000-0000-0000-0000-0000000000aa', 6);
+    insert into public.orders (listing_id, buyer_id, seller_id, business_id, item_title, item_price_zmw, buyer_name, seller_name, expires_at, quantity)
+    select '$lid', u, '$A', '20000000-0000-0000-0000-0000000000aa', 'Race item', 500, 'Buyer', 'Seller', now() + interval '1 day', 3 from unnest(array['$B','$C']::uuid[]) u;" >/dev/null
+  for o in $(q "select id from public.orders where listing_id='$lid'"); do
+    scratch -c "set role authenticated; select set_config('request.jwt.claims','{\"sub\":\"$A\",\"role\":\"authenticated\",\"aal\":\"aal1\"}', false); select public.confirm_order('$o', 0); select public.mark_handed_over('$o', 2);" >/dev/null 2>&1
+  done
+done
+race
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s9' and slot=$i")
+  ob=$(q "select id from public.orders where listing_id='$lid' and buyer_id='$B'")
+  oc=$(q "select id from public.orders where listing_id='$lid' and buyer_id='$C'")
+  worker "s9_${i}_b" "$B" "select public.complete_order('$ob');"
+  worker "s9_${i}_c" "$C" "select public.complete_order('$oc');"
+done
+wait_for_workers
+for i in $(seq 1 "$N"); do
+  lid=$(q "select listing_id from public.race_plan where scenario='s9' and slot=$i")
+  qty=$(q "select quantity from public.listing_stock where listing_id='$lid'")
+  mv=$(q "select coalesce(sum(change),0) from public.stock_movements where listing_id='$lid' and reason='sale'")
+  [ "$qty" = "2" ] && [ "$mv" = "-4" ] || fail "s9 item $i: stock $qty, sales recorded $mv (want 2 and -4)"
+done
+
 
 # ---------------------------------------------------------------------------------------------------------------
 # Staff voting (migration 0015)
