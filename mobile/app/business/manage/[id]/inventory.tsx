@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
@@ -25,6 +25,7 @@ const FILTERS: Array<{ label: string; value: InventoryFilter }> = [
 
 export default function Inventory() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [filter, setFilter] = useState<InventoryFilter>('all');
   const [rows, setRows] = useState<InventoryRow[]>([]);
   const [open, setOpen] = useState<string | null>(null);
@@ -124,6 +125,9 @@ export default function Inventory() {
             <Text style={[styles.text, item.isLow && { color: colors.danger }]}>{stockLabel(item.quantity, item.lowStockAt)}</Text>
             <Text style={styles.meta}>{item.status}{item.branchName ? ` · ${item.branchName}` : ''}</Text>
             <Button title={open === item.listingId ? 'Close' : item.tracked ? 'Change stock' : 'Start counting stock'} variant="secondary" onPress={() => expand(item)} />
+            {item.tracked ? (
+              <Button title="Stock per branch" variant="secondary" onPress={() => router.push({ pathname: '/business/manage/[id]/branch-stock', params: { id, listingId: item.listingId } })} />
+            ) : null}
             {open === item.listingId ? (
               item.tracked ? (
                 <>
