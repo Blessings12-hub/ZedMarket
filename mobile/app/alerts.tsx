@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Notice, SectionTitle } from '../src/components/ui';
 import { formatKwacha } from '../src/domain/money';
@@ -13,6 +13,7 @@ import {
 import type { ListingAlert, SavedSearch } from '../src/features/listings/types';
 import { friendlyError } from '../src/lib/errors';
 import { colors, radius, spacing } from '../src/theme';
+import { showAlert } from '../src/lib/dialog';
 
 // New listings that match a saved search land here. Push, SMS and email delivery
 // come with the notifications module; until then this list is the alert.
@@ -48,7 +49,7 @@ export default function AlertsScreen() {
   }
 
   function removeSearch(search: SavedSearch) {
-    Alert.alert('Delete this saved search?', `${search.name}\nIts alerts will be removed too.`, [
+    showAlert('Delete this saved search?', `${search.name}\nIts alerts will be removed too.`, [
       { text: 'Keep it', style: 'cancel' },
       {
         text: 'Delete',
@@ -58,7 +59,7 @@ export default function AlertsScreen() {
             await deleteSavedSearch(search.id);
             await load();
           } catch (e) {
-            Alert.alert('Could not delete it', friendlyError(e));
+            showAlert('Could not delete it', friendlyError(e));
           }
         },
       },

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { FilterSheet } from '../../src/components/FilterSheet';
@@ -31,6 +31,7 @@ import {
 } from '../../src/features/listings/types';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { showAlert } from '../../src/lib/dialog';
 
 const NEARBY_KEY = 'zedmarket.nearbyLocation';
 
@@ -140,7 +141,7 @@ export default function BrowseScreen() {
       await clearRecentlyViewed();
       setRails((r) => ({ ...r, recent: [] }));
     } catch (e) {
-      Alert.alert('Could not clear your history', friendlyError(e));
+      showAlert('Could not clear your history', friendlyError(e));
     }
   }
 
@@ -163,9 +164,9 @@ export default function BrowseScreen() {
     });
     try {
       await saveSearch(name, debouncedTerm, filters);
-      Alert.alert('Search saved', 'You will see new matching items under Alerts in your account.');
+      showAlert('Search saved', 'You will see new matching items under Alerts in your account.');
     } catch (e) {
-      Alert.alert('Could not save this search', friendlyError(e));
+      showAlert('Could not save this search', friendlyError(e));
     }
   }
 

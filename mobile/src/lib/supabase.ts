@@ -5,11 +5,11 @@ import { createClient } from '@supabase/supabase-js';
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!url || !anonKey) {
-  throw new Error('Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY. Copy .env.example to .env and fill them in.');
-}
+// When the two settings are missing the app must not crash at start-up (on the web that is a blank white page). It starts,
+// the root layout sees this flag and shows a clear "not set up" screen, and nothing tries to reach a database.
+export const supabaseConfigured = Boolean(url && anonKey);
 
-export const supabase = createClient(url, anonKey, {
+export const supabase = createClient(url || 'https://not-configured.invalid', anonKey || 'not-configured', {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,

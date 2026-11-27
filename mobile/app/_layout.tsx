@@ -1,10 +1,11 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
 import { isPublicRoute } from '../src/domain/routes';
+import { supabaseConfigured } from '../src/lib/supabase';
 import { colors } from '../src/theme';
 
 // Signed-out visitors can browse, open listings and seller pages, and see the sign-in screens.
@@ -119,7 +120,21 @@ function AuthGate() {
   );
 }
 
+// Shown instead of a blank page when the app was built without its Supabase settings.
+function NotConfigured() {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12, backgroundColor: colors.background }}>
+      <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>ZedMarket is not set up yet</Text>
+      <Text style={{ fontSize: 15, color: colors.muted, textAlign: 'center', lineHeight: 22 }}>
+        This copy of the app was built without its Supabase settings. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
+        where the app is built (for example, Vercel project settings, Environment Variables), then build it again.
+      </Text>
+    </View>
+  );
+}
+
 export default function RootLayout() {
+  if (!supabaseConfigured) return <NotConfigured />;
   return (
     <AuthProvider>
       <StatusBar style="dark" />

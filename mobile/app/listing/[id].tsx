@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { ListingRail } from '../../src/components/ListingRail';
@@ -30,6 +30,7 @@ import { listingLink, listingShareMessage, webBase } from '../../src/domain/shar
 import { friendlyError } from '../../src/lib/errors';
 import { listingImageUrl } from '../../src/lib/supabase';
 import { colors, radius, spacing } from '../../src/theme';
+import { showAlert } from '../../src/lib/dialog';
 
 const PHOTO_WIDTH = Dimensions.get('window').width;
 
@@ -99,7 +100,7 @@ export default function ListingScreen() {
   // Guests can look at everything; actions that need an account send them to sign in.
   function needAccount(): boolean {
     if (signedIn) return false;
-    Alert.alert('Sign in to continue', 'Create a free account or sign in to do that.', [
+    showAlert('Sign in to continue', 'Create a free account or sign in to do that.', [
       { text: 'Not now', style: 'cancel' },
       { text: 'Sign in', onPress: () => router.push('/sign-in') },
     ]);
@@ -120,9 +121,9 @@ export default function ListingScreen() {
     try {
       if (on) await featureListing(listing!.id, 7);
       else await unfeatureListing(listing!.id);
-      Alert.alert(on ? 'Featured for 7 days' : 'Removed from featured');
+      showAlert(on ? 'Featured for 7 days' : 'Removed from featured');
     } catch (e) {
-      Alert.alert('Could not change featured status', friendlyError(e));
+      showAlert('Could not change featured status', friendlyError(e));
     } finally {
       setBusy(false);
     }
@@ -147,7 +148,7 @@ export default function ListingScreen() {
       const conversationId = await startConversation(listing!.id);
       router.push(`/chat/${conversationId}`);
     } catch (e) {
-      Alert.alert('Could not start the chat', friendlyError(e));
+      showAlert('Could not start the chat', friendlyError(e));
     } finally {
       setBusy(false);
     }
@@ -169,7 +170,7 @@ export default function ListingScreen() {
       await setListingStatus(listing!.id, status);
       await load();
     } catch (e) {
-      Alert.alert('Could not update the listing', friendlyError(e));
+      showAlert('Could not update the listing', friendlyError(e));
     } finally {
       setBusy(false);
     }

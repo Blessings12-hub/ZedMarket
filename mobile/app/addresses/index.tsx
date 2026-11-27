@@ -1,12 +1,13 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Notice } from '../../src/components/ui';
 import { ADDRESS_KIND_LABELS, formatPlace, mapsLink, type Place } from '../../src/domain/locations';
 import { deleteAddress, listMyAddresses, loadPlaces, type SavedAddress } from '../../src/features/locations/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { showAlert } from '../../src/lib/dialog';
 
 // Only the owner can see these. Staff cannot read saved addresses.
 export default function Addresses() {
@@ -23,7 +24,7 @@ export default function Addresses() {
   useFocusEffect(load);
 
   function remove(a: SavedAddress) {
-    Alert.alert('Delete this address?', a.label, [
+    showAlert('Delete this address?', a.label, [
       { text: 'Keep it', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteAddress(a.id).then(load).catch((e) => setError(friendlyError(e))) },
     ]);
