@@ -1,11 +1,13 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Notice } from '../../src/components/ui';
-import { cartTotal } from '../../src/domain/cart';
+import { cartTotal, effectiveQuantity } from '../../src/domain/cart';
 import { formatKwacha } from '../../src/domain/money';
-import { removeItem, useCart } from '../../src/features/cart/store';
+import { removeItem, setQuantity, useCart } from '../../src/features/cart/store';
+import { fetchStockInfo } from '../../src/features/orders/api';
 import { listingImageUrl } from '../../src/lib/supabase';
 import { colors, radius, spacing } from '../../src/theme';
 
@@ -15,13 +17,41 @@ export default function CartScreen() {
   const router = useRouter();
   const { session } = useAuth();
   const items = useCart();
+  // How many of each item can be ordered right now. Missing or null means a one-off item (or the count could not be read):
+  // then only 1 is shown and asked for, so the cart never promises more than checkout will ask the database for.
+  const [stock, setStock] = useState<Record<string, number | null>>({});
+  const ids = items.map((i) => i.listingId).join(',');
+  useFocusEffect(
+    useCallback(() => {
+      let live = true;
+      (async () => {
+        const entries = await Promise.all(
+          ids.split(',').filter(Boolean).map(async (id) => {
+            try {
+              return [id, await fetchStockInfo(id)] as const;
+            } catch (e) {
+              console.error('[cart] stock count failed', id, e);
+              return [id, null] as const;
+            }
+          }),
+        );
+        if (live) setStock(Object.fromEntries(entries));
+      })();
+      return () => { live = false; };
+    }, [ids]),
+  );
+
+  const qtyFor = (listingId: string) => {
+    const item = items.find((x) => x.listingId === listingId);
+    return item ? effectiveQuantity(item, stock[listingId]) : 1;
+  };
 
   function checkout(listingId: string) {
     if (!session) {
       router.push('/sign-in');
       return;
     }
-    router.push(`/checkout/${listingId}`);
+    router.push({ pathname: '/checkout/[listingId]', params: { listingId, quantity: String(qtyFor(listingId)) } });
   }
 
   if (items.length === 0) {
@@ -44,9 +74,16 @@ export default function CartScreen() {
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={styles.title} numberOfLines={2}>{i.title}</Text>
               {i.sellerName ? <Text style={styles.meta}>Sold by {i.sellerName}</Text> : null}
-              <Text style={styles.price}>{formatKwacha(i.price)}</Text>
+              <Text style={styles.price}>{formatKwacha(i.price)}{effectiveQuantity(i, stock[i.listingId]) > 1 ? ` each · ${formatKwacha(i.price * effectiveQuantity(i, stock[i.listingId]))}` : ''}</Text>
             </View>
           </View>
+          {(stock[i.listingId] ?? 0) > 1 ? (
+            <View style={styles.actions}>
+              <View style={{ flex: 1 }}><Button title="−" variant="secondary" disabled={effectiveQuantity(i, stock[i.listingId]) <= 1} onPress={() => void setQuantity(i.listingId, effectiveQuantity(i, stock[i.listingId]) - 1)} /></View>
+              <Text style={styles.price}>Quantity {effectiveQuantity(i, stock[i.listingId])}</Text>
+              <View style={{ flex: 1 }}><Button title="+" variant="secondary" disabled={effectiveQuantity(i, stock[i.listingId]) >= (stock[i.listingId] ?? 1)} onPress={() => void setQuantity(i.listingId, effectiveQuantity(i, stock[i.listingId]) + 1)} /></View>
+            </View>
+          ) : null}
           <View style={styles.actions}>
             <View style={{ flex: 1 }}><Button title="Request to buy" onPress={() => checkout(i.listingId)} /></View>
             <View style={{ flex: 1 }}><Button title="View" variant="secondary" onPress={() => router.push(`/listing/${i.listingId}`)} /></View>
@@ -56,7 +93,7 @@ export default function CartScreen() {
       ))}
       <View style={styles.total}>
         <Text style={styles.meta}>{items.length} {items.length === 1 ? 'item' : 'items'} · total of listed prices</Text>
-        <Text style={styles.price}>{formatKwacha(cartTotal(items))}</Text>
+        <Text style={styles.price}>{formatKwacha(cartTotal(items, stock))}</Text>
         <Text style={styles.meta}>Delivery fees are set by each seller when they confirm.</Text>
       </View>
     </ScrollView>
