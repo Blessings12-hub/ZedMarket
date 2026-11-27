@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { AnnouncementBanner } from '../../src/components/AnnouncementBanner';
@@ -36,6 +36,7 @@ import { browseLabel, deliveryShort, pickDeliveryAddress, provinceFor, validArea
 import { listMyAddresses, loadPlaces, type SavedAddress } from '../../src/features/locations/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { showAlert } from '../../src/lib/dialog';
 
 type Rails = {
   featured: ListingSummary[];
@@ -160,7 +161,7 @@ export default function BrowseScreen() {
       await clearRecentlyViewed();
       setRails((r) => ({ ...r, recent: [] }));
     } catch (e) {
-      Alert.alert('Could not clear your history', friendlyError(e));
+      showAlert('Could not clear your history', friendlyError(e));
     }
   }
 
@@ -183,9 +184,9 @@ export default function BrowseScreen() {
     });
     try {
       await saveSearch(name, debouncedTerm, filters);
-      Alert.alert('Search saved', 'You will see new matching items under Alerts in your account.');
+      showAlert('Search saved', 'You will see new matching items under Alerts in your account.');
     } catch (e) {
-      Alert.alert('Could not save this search', friendlyError(e));
+      showAlert('Could not save this search', friendlyError(e));
     }
   }
 

@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { SharePickup } from '../../src/components/SharePickup';
@@ -41,6 +41,7 @@ import {
 import { fetchDisputeForOrder, fetchReviewedOrderIds } from '../../src/features/trust/api';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
+import { showAlert } from '../../src/lib/dialog';
 
 export default function OrderScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -166,7 +167,7 @@ export default function OrderScreen() {
           : action === 'decline'
             ? 'The buyer will be told the order was declined.'
             : 'The other person will see that the order was cancelled.';
-      Alert.alert(`${actionLabel(action, order!.fulfilment)}?`, text, [
+      showAlert(`${actionLabel(action, order!.fulfilment)}?`, text, [
         { text: 'Go back', style: 'cancel' },
         { text: 'Yes', style: action === 'complete' ? 'default' : 'destructive', onPress: () => run(action) },
       ]);
@@ -179,9 +180,9 @@ export default function OrderScreen() {
     try {
       const dispute = await fetchDisputeForOrder(order!.id);
       if (dispute) router.push(`/dispute/${dispute.id}`);
-      else Alert.alert('No dispute found', 'This order is marked as in dispute but we could not find the case.');
+      else showAlert('No dispute found', 'This order is marked as in dispute but we could not find the case.');
     } catch (e) {
-      Alert.alert('Could not open the dispute', friendlyError(e));
+      showAlert('Could not open the dispute', friendlyError(e));
     }
   }
 

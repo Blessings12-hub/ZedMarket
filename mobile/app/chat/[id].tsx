@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../src/auth/AuthProvider';
@@ -17,6 +17,7 @@ import { blockUser } from '../../src/features/reports/api';
 import { friendlyError } from '../../src/lib/errors';
 import { supabase } from '../../src/lib/supabase';
 import { colors, radius, spacing } from '../../src/theme';
+import { showAlert } from '../../src/lib/dialog';
 
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -89,7 +90,7 @@ export default function ChatScreen() {
 
   function confirmBlock() {
     if (!otherUserId) return;
-    Alert.alert('Block this person?', 'You will no longer be able to message each other.', [
+    showAlert('Block this person?', 'You will no longer be able to message each other.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Block',
