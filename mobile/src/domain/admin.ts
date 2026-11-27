@@ -1,4 +1,4 @@
-export type AdminRole = 'support' | 'moderator' | 'finance' | 'tech_admin';
+export type AdminRole = 'support' | 'moderator' | 'finance' | 'tech_admin' | 'media';
 
 export type StaffStep = 'not_staff' | 'enrol' | 'verify' | 'ready';
 
@@ -38,6 +38,7 @@ export const ROLE_LABELS: Record<AdminRole, string> = {
   moderator: 'Moderator',
   finance: 'Finance',
   tech_admin: 'Technical admin',
+  media: 'Media',
 };
 
 export const MIN_REASON_LENGTH = 3;
@@ -111,12 +112,22 @@ export const ROLE_JOBS: Record<AdminRole, RoleJobs> = {
   },
   tech_admin: {
     summary: 'Who has staff access, and the health of the platform.',
-    enforced: ['Add and remove staff roles.', 'Read the audit log.', 'Read platform statistics.'],
+    enforced: ['Add and remove staff roles.', 'Read the audit log.', 'Read platform statistics.', 'Appoint people to the Media department and give or take away individual Media permissions.', 'Review, approve and publish Media content.'],
+    coming: [],
+  },
+  media: {
+    summary: 'ZedMarket\'s visual identity, announcements and campaigns.',
+    enforced: [
+      'Upload and organise images, videos and graphics in the Media Library.',
+      'Create content and submit it for approval. You cannot approve your own work.',
+      'Plan campaigns and the content calendar, and answer requests from other departments.',
+      'Publish only if an administrator has given you publishing authority.',
+    ],
     coming: [],
   },
 };
 
 export function jobsFor(roles: AdminRole[]): { role: AdminRole; jobs: RoleJobs }[] {
-  const order: AdminRole[] = ['finance', 'moderator', 'support', 'tech_admin'];
+  const order: AdminRole[] = ['finance', 'moderator', 'support', 'tech_admin', 'media'];
   return order.filter((r) => roles.includes(r)).map((role) => ({ role, jobs: ROLE_JOBS[role] }));
 }

@@ -18,7 +18,7 @@ import {
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
 
-const ROLES: AdminRole[] = ['support', 'moderator', 'finance', 'tech_admin'];
+const ROLES: AdminRole[] = ['support', 'moderator', 'finance', 'tech_admin', 'media'];
 
 export default function Team() {
   const { userId } = useAuth();

@@ -76,6 +76,16 @@ function AuthGate() {
       <Stack.Screen name="dispute/open" options={{ title: 'Report a problem' }} />
       <Stack.Screen name="dispute/[id]" options={{ title: 'Dispute' }} />
       <Stack.Screen name="appeal" options={{ title: 'Appeal a decision' }} />
+      <Stack.Screen name="media/index" options={{ title: 'Media Department' }} />
+      <Stack.Screen name="media/library" options={{ title: 'Media Library' }} />
+      <Stack.Screen name="media/studio" options={{ title: 'Content Studio' }} />
+      <Stack.Screen name="media/item/[id]" options={{ title: 'Content' }} />
+      <Stack.Screen name="media/campaigns" options={{ title: 'Campaigns' }} />
+      <Stack.Screen name="media/calendar" options={{ title: 'Content Calendar' }} />
+      <Stack.Screen name="media/performance" options={{ title: 'Performance' }} />
+      <Stack.Screen name="media/requests" options={{ title: 'Requests' }} />
+      <Stack.Screen name="media/activity" options={{ title: 'Activity record' }} />
+      <Stack.Screen name="media/people" options={{ title: 'Media staff' }} />
       <Stack.Screen name="admin/index" options={{ title: 'Staff tools' }} />
       <Stack.Screen name="admin/listings" options={{ title: 'Listings to review' }} />
       <Stack.Screen name="admin/reports" options={{ title: 'Open reports' }} />

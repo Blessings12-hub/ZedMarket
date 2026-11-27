@@ -5,7 +5,7 @@ import {
 
 // The Staff tools home. Which rows show is decided here from the person's roles, but the database is what actually
 // allows or refuses every action; hiding a row is only a convenience.
-export type StaffMenuItem = { key: string; title: string; note: string; href: string; allowed: (roles: AdminRole[]) => boolean };
+export type StaffMenuItem = { key: string; title: string; note: string; href: string; allowed: (roles: AdminRole[], perms: readonly string[]) => boolean };
 export type StaffMenuSection = { title: string; items: StaffMenuItem[] };
 
 const anyStaff = (roles: AdminRole[]) => roles.length > 0;
@@ -44,6 +44,14 @@ const SECTIONS: { title: string; items: StaffMenuItem[] }[] = [
     ],
   },
   {
+    title: 'Media',
+    items: [
+      { key: 'media', title: 'Media Department', note: 'Content, library, campaigns and announcements', href: '/media', allowed: (_r, p) => p.includes('media.access') },
+      { key: 'media_people', title: 'Media staff', note: 'Appoint, remove and set permissions for Media staff', href: '/media/people', allowed: (r) => canManageTeam(r) },
+      { key: 'media_ask', title: 'Ask Media for something', note: 'Request a poster, announcement or campaign', href: '/media/requests', allowed: (r, p) => anyStaff(r) && !p.includes('media.requests') },
+    ],
+  },
+  {
     title: 'Our team',
     items: [
       { key: 'jobs', title: 'Your jobs', note: 'What your role is responsible for', href: '/admin/jobs', allowed: anyStaff },
@@ -53,8 +61,9 @@ const SECTIONS: { title: string; items: StaffMenuItem[] }[] = [
   },
 ];
 
-export function staffMenu(roles: AdminRole[]): StaffMenuSection[] {
-  return SECTIONS.map((s) => ({ title: s.title, items: s.items.filter((i) => i.allowed(roles)) })).filter((s) => s.items.length > 0);
+// Media rows depend on permissions (not only roles), so the permission list is passed in when it is known.
+export function staffMenu(roles: AdminRole[], perms: readonly string[] = []): StaffMenuSection[] {
+  return SECTIONS.map((s) => ({ title: s.title, items: s.items.filter((i) => i.allowed(roles, perms)) })).filter((s) => s.items.length > 0);
 }
 
 export const STAFF_MENU_KEYS = SECTIONS.flatMap((s) => s.items.map((i) => i.key));

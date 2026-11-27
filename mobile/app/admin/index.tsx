@@ -7,6 +7,7 @@ import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
 import { ROLE_LABELS, cleanTotpCode, staffAccessStep, type AdminRole, type StaffStep } from '../../src/domain/admin';
 import { staffMenu } from '../../src/domain/staffMenu';
 import { confirmCode, fetchAssurance, fetchMyRoles, fetchStaffCounts, startEnrolment, verifiedFactorId } from '../../src/features/admin/api';
+import { fetchPermissions } from '../../src/features/media/api';
 import { StaffBoardView } from '../../src/features/admin/boardView';
 import { staffBoard, type QueueKey, type StaffCounts } from '../../src/features/admin/dashboard';
 import { friendlyError } from '../../src/lib/errors';
@@ -25,6 +26,7 @@ export default function AdminHome() {
   const [busy, setBusy] = useState(false);
   const [counts, setCounts] = useState<StaffCounts | null>(null);
   const [failed, setFailed] = useState<QueueKey[]>([]);
+  const [perms, setPerms] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -39,6 +41,8 @@ export default function AdminHome() {
         const board = await fetchStaffCounts(myRoles);
         setCounts(board.counts);
         setFailed(board.failed);
+        // Permissions decide the Media rows. If they cannot load, the other tools still show.
+        fetchPermissions().then(setPerms).catch(() => setPerms([]));
       }
       if (level.nextLevel === 'aal2') setFactorId(await verifiedFactorId());
       setError('');
@@ -159,7 +163,7 @@ export default function AdminHome() {
       {failed.length > 0 ? <Notice tone="warning">{`Some counts could not be loaded (${failed.join(', ')}). Pull the screen again or open the queue directly.`}</Notice> : null}
       {counts ? <StaffBoardView board={staffBoard(roles, counts, Date.now())} onOpen={(href) => router.push(href as never)} /> : error ? null : <ActivityIndicator color={colors.primary} />}
 
-      {staffMenu(roles).map((section) => (
+      {staffMenu(roles, perms).map((section) => (
         <View key={section.title} style={styles.section}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
           <View style={styles.group}>
