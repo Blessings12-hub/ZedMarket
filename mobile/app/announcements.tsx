@@ -1,13 +1,16 @@
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Notice } from '../src/components/ui';
-import { fetchAnnouncements } from '../src/features/media/api';
+import { fetchAnnouncements, trackAnnouncement } from '../src/features/media/api';
 import { useLoad } from '../src/features/media/useLoad';
 import { colors, radius, spacing } from '../src/theme';
 
 // Published announcements and notices from the Media team. Open to everyone; the database returns only published ones.
 export default function Announcements() {
   const list = useLoad(fetchAnnouncements);
+  // One view per announcement each time the list is opened.
+  useEffect(() => { (list.data ?? []).forEach((a) => void trackAnnouncement(a.id, 'view')); }, [list.data]);
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {list.error ? (

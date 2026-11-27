@@ -161,3 +161,20 @@ export function contentProblem(title: string, body: string): string | null {
   if (body.length > 5000) return 'The text can be at most 5000 letters.';
   return null;
 }
+
+// ----- attaching library files to content -----
+// Only files that passed the safety check and are not archived can be attached.
+export function attachable<T extends { status: string; scanStatus: string }>(assets: T[]): T[] {
+  return assets.filter((a) => a.status === 'active' && a.scanStatus === 'clean');
+}
+export function toggleId(ids: string[], id: string): string[] {
+  return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id].slice(0, 10);
+}
+
+// ----- pausing a department's access -----
+// Mirrors staff_role_access_key in the database. Administrators and Media have no pause here.
+export const PAUSABLE: Record<string, { key: string; label: string }> = {
+  support: { key: 'support.access', label: 'Support and Verification' },
+  moderator: { key: 'moderation.access', label: 'Moderation' },
+  finance: { key: 'finance.access', label: 'Finance' },
+};

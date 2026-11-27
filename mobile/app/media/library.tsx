@@ -3,7 +3,7 @@ import { Image, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { Button, Chip, Field, Notice, SectionTitle } from '../../src/components/ui';
-import { archiveAsset, assetUrl, deleteAsset, fetchPermissions, listAssets, updateAsset, uploadAsset, type Asset } from '../../src/features/media/api';
+import { archiveAsset, assetUrl, deleteAsset, fetchPermissions, listAssets, rescanWaiting, updateAsset, uploadAsset, type Asset } from '../../src/features/media/api';
 import { CATEGORIES, deleteConfirmed, formatBytes, has, scanLabel } from '../../src/features/media/domain';
 import { Card, MediaScreen, styles as s, when } from '../../src/features/media/ui';
 import { useLoad } from '../../src/features/media/useLoad';
@@ -58,6 +58,10 @@ export default function Library() {
                 onPress={() => void run(() => uploadAsset(userId!, { title: title.trim(), description: '', category }, 'pdf'), 'Uploaded. It can be published once the safety check passes.', () => setTitle(''))} />
               <Text style={s.meta}>Images up to 10 MB, PDFs up to 20 MB and videos up to 50 MB. Every file is checked before it can be published.</Text>
             </View>
+          ) : null}
+          {(list.data ?? []).some((a) => a.scanStatus === 'pending' || a.scanStatus === 'failed') && has(p, 'media.upload') ? (
+            <Button title="Check the waiting files again" variant="secondary" loading={busy}
+              onPress={() => void run(async () => { const n = await rescanWaiting(); setMsg(`Checked ${n} file(s).`); }, '')} />
           ) : null}
           {(list.data ?? []).map((a) => (
             <Card key={a.id} title={a.title} note={`${a.kind} · ${formatBytes(a.sizeBytes)} · ${scanLabel(a.scanStatus)}`} meta={`${a.uploaderName} · ${when(a.createdAt)}`} right={`v${a.version}`} onPress={() => void select(a)} />

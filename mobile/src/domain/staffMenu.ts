@@ -40,6 +40,7 @@ const SECTIONS: { title: string; items: StaffMenuItem[] }[] = [
     items: [
       { key: 'stats', title: 'Statistics', note: 'Platform numbers', href: '/admin/stats', allowed: (r) => canSeeFinance(r) || canReadTrust(r) || canManageTeam(r) },
       { key: 'team', title: 'Staff team', note: 'Who has which staff role', href: '/admin/team', allowed: canManageTeam },
+      { key: 'access', title: 'Pause or restore access', note: 'Switch a department off or on for one person', href: '/admin/access', allowed: canManageTeam },
       { key: 'audit', title: 'Audit log', note: 'A permanent record of staff actions', href: '/admin/audit', allowed: canManageTeam },
     ],
   },

@@ -94,6 +94,13 @@ export async function scanAsset(id: string): Promise<void> {
   if (error) console.warn('[media] safety check could not run yet', error);
 }
 
+// Asks for another safety check on every file still waiting (up to 20 at a time). Used when the first attempt could not run.
+export async function rescanWaiting(): Promise<number> {
+  const { data, error } = await supabase.functions.invoke('media-scan', { body: { rescan: true } });
+  if (error) throw error;
+  return Number((data as { checked?: number } | null)?.checked ?? 0);
+}
+
 // Removes stored files whose record is already deleted (clean-up after a failed removal).
 export async function purgeDeleted(): Promise<void> {
   const { error } = await supabase.functions.invoke('media-scan', { body: { purge: true } });
@@ -225,4 +232,17 @@ export async function listPermissionCatalogue(): Promise<{ key: string; descript
 
 // ----- public announcements (everyone, including guests) -----
 export type PublicAnnouncement = { id: string; kind: string; title: string; body: string | null; published_at: string };
+// Counts a view or tap of an announcement. Best effort: it must never get in the way of reading it.
+export async function trackAnnouncement(id: string, event: 'view' | 'click'): Promise<void> {
+  const { error } = await supabase.rpc('media_track', { p_content: id, p_event: event });
+  if (error) console.warn('[media] could not count that', error.message);
+}
 export const fetchAnnouncements = () => rpc<PublicAnnouncement[]>('media_public_announcements', { p_limit: 20 });
+
+
+// ----- pause or restore a person's access to a department (administrators only) -----
+export type AccessPause = { userId: string; permission: string };
+export async function listAccessPauses(): Promise<AccessPause[]> {
+  const r = await supabase.from('staff_permission_overrides').select('user_id, permission').eq('effect', 'revoke').like('permission', '%.access');
+  return check<{ user_id: string; permission: string }[]>(r, 'access pauses').map((x) => ({ userId: x.user_id, permission: x.permission }));
+}

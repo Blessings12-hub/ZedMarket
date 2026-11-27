@@ -5,8 +5,16 @@
 //         public.media_record_scan(). The CALLER never supplies the verdict, only the file id.
 // purge:  { "purge": true }         -> removes stored files whose library record is already deleted (needs media.delete).
 //
-// This is a file-type and content check, NOT an antivirus engine. To add a real one (for example ClamAV), call it where
-// `verdict()` is used below; nothing else needs to change.
+// rescan: { "rescan": true }       -> checks up to 20 files still waiting (for example after a temporary failure).
+//
+// Two layers:
+//  1. Always: the real file type is checked, and a PDF may not carry scripts or embedded files.
+//  2. Optional, when the secret VIRUSTOTAL_API_KEY is set: the file's SHA-256 fingerprint is looked up at VirusTotal.
+//     Only the fingerprint is sent, never the file. A file known as malware is refused. A fingerprint VirusTotal has never
+//     seen is not proof of safety, so layer 1 still applies. If VirusTotal cannot be reached the file stays "waiting" and
+//     can be checked again (rescan); it is never marked clean without the check you asked for.
+//     Free VirusTotal keys allow only a few lookups a minute, so a busy day may leave files waiting a little longer.
+//     This is not a full antivirus engine; it catches known threats and disguised files.
 //
 // Deploy:  supabase functions deploy media-scan
 // NOTE: written to the Supabase Edge Function pattern but NOT run in the build environment (no Deno/Supabase there).
@@ -49,7 +57,7 @@ Deno.serve(async (req) => {
   const auth = req.headers.get('Authorization');
   if (!auth) return json({ error: 'Sign in first.' }, 401);
 
-  let body: { asset_id?: string; purge?: boolean };
+  let body: { asset_id?: string; purge?: boolean; rescan?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -76,24 +84,72 @@ Deno.serve(async (req) => {
   }
 
   if (!perms.includes('media.upload')) return json({ error: 'Not allowed.' }, 403);
+
+  if (body.rescan) {
+    const { data: waiting } = await admin.from('media_assets').select('id').in('scan_status', ['pending', 'failed']).neq('status', 'deleted').order('created_at').limit(20);
+    let checked = 0;
+    for (const w of waiting ?? []) {
+      await admin.from('media_assets').update({ scan_status: 'pending' }).eq('id', w.id).eq('scan_status', 'failed');
+      const r = await scanOne(admin, w.id as string);
+      if (r.result === 'clean' || r.result === 'infected') checked++;
+    }
+    return json({ checked });
+  }
+
   const id = String(body.asset_id ?? '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: 'Bad file.' }, 400);
+  const out = await scanOne(admin, id);
+  return json(out.body, out.status);
+});
 
-  const { data: asset } = await admin.from('media_assets').select('id, storage_path, mime_type, scan_status, status').eq('id', id).maybeSingle();
-  if (!asset || asset.status === 'deleted') return json({ error: 'File not found.' }, 404);
-  if (asset.scan_status !== 'pending') return json({ result: asset.scan_status }); // already decided; never re-decided by a caller
+type Admin = ReturnType<typeof createClient>;
+type Outcome = { result: string; status: number; body: Record<string, unknown> };
 
-  const signed = await admin.storage.from('media-library').createSignedUrl(asset.storage_path, 60);
-  if (signed.error) return json({ error: 'Could not read the file.' }, 500);
-  const res = await fetch(signed.data.signedUrl, { headers: { Range: 'bytes=0-1048575' } });
+async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+  const d = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 'known' = VirusTotal says malware, 'unknown' = never seen / fine, 'unavailable' = could not ask.
+async function lookup(hash: string, key: string): Promise<'known' | 'unknown' | 'unavailable'> {
+  try {
+    const r = await fetch(`https://www.virustotal.com/api/v3/files/${hash}`, { headers: { 'x-apikey': key } });
+    if (r.status === 404) return 'unknown';
+    if (!r.ok) return 'unavailable';
+    const j = await r.json();
+    const s = j?.data?.attributes?.last_analysis_stats ?? {};
+    return Number(s.malicious ?? 0) + Number(s.suspicious ?? 0) > 0 ? 'known' : 'unknown';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+async function scanOne(admin: Admin, id: string): Promise<Outcome> {
+  const { data: asset } = await admin.from('media_assets').select('id, storage_path, mime_type, size_bytes, scan_status, status').eq('id', id).maybeSingle();
+  if (!asset || asset.status === 'deleted') return { result: 'missing', status: 404, body: { error: 'File not found.' } };
+  if (asset.scan_status !== 'pending') return { result: asset.scan_status, status: 200, body: { result: asset.scan_status } }; // never re-decided by a caller
+
+  const signed = await admin.storage.from('media-library').createSignedUrl(asset.storage_path, 120);
+  if (signed.error) return { result: 'error', status: 500, body: { error: 'Could not read the file.' } };
+
+  const key = Deno.env.get('VIRUSTOTAL_API_KEY');
+  const useVt = !!key && Number(asset.size_bytes) <= 32 * 1024 * 1024; // whole file is read only to fingerprint it
+  const res = await fetch(signed.data.signedUrl, useVt ? {} : { headers: { Range: 'bytes=0-1048575' } });
   if (!res.ok && res.status !== 206) {
     await admin.rpc('media_record_scan', { p_asset: id, p_result: 'failed' });
-    return json({ result: 'failed' });
+    return { result: 'failed', status: 200, body: { result: 'failed' } };
   }
-  const head = new Uint8Array(await res.arrayBuffer());
-  const reason = head.length < 12 ? 'file is empty or too short' : verdict(asset.mime_type, head);
+  const buf = await res.arrayBuffer();
+  const head = new Uint8Array(buf.slice(0, 1048576));
+
+  let reason = head.length < 12 ? 'file is empty or too short' : verdict(asset.mime_type, head);
+  if (reason === 'clean' && useVt) {
+    const found = await lookup(await sha256Hex(buf), key!);
+    if (found === 'unavailable') return { result: 'pending', status: 200, body: { result: 'pending', note: 'The malware check is not reachable right now. Try again later.' } };
+    if (found === 'known') reason = 'known malware';
+  }
   const result = reason === 'clean' ? 'clean' : 'infected';
   const { error } = await admin.rpc('media_record_scan', { p_asset: id, p_result: result });
-  if (error) return json({ error: 'Could not record the result.' }, 500);
-  return json({ result, reason: result === 'clean' ? null : reason });
-});
+  if (error) return { result: 'error', status: 500, body: { error: 'Could not record the result.' } };
+  return { result, status: 200, body: { result, reason: result === 'clean' ? null : reason } };
+}
