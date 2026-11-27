@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 
-import { addToCart, parseCart, removeFromCart, type CartItem } from '../../domain/cart';
+import { addToCart, parseCart, removeFromCart, setCartQuantity, type CartItem } from '../../domain/cart';
 
 // The cart lives on the phone (one per signed-in user, or one for a visitor) and is never sent anywhere
 // until the buyer requests an item at checkout.
@@ -37,6 +37,13 @@ async function ensureLoaded() {
 export async function addItem(item: CartItem) {
   await ensureLoaded();
   items = addToCart(items, item);
+  publish();
+  await persist();
+}
+
+export async function setQuantity(listingId: string, quantity: number) {
+  await ensureLoaded();
+  items = setCartQuantity(items, listingId, quantity);
   publish();
   await persist();
 }
