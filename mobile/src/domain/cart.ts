@@ -7,6 +7,7 @@ export type CartItem = {
   sellerName: string;
   imagePath: string | null;
   addedAt: string;
+  quantity?: number; // missing in older saved carts: counts as 1
 };
 
 export const MAX_CART_ITEMS = 30;
@@ -25,8 +26,24 @@ export function inCart(items: readonly CartItem[], listingId: string): boolean {
   return items.some((i) => i.listingId === listingId);
 }
 
-export function cartTotal(items: readonly CartItem[]): number {
-  return Math.round(items.reduce((sum, i) => sum + i.price, 0) * 100) / 100;
+export const MAX_CART_QUANTITY = 1000;
+
+const clampQuantity = (q: unknown): number => (typeof q === 'number' && Number.isInteger(q) && q >= 1 ? Math.min(q, MAX_CART_QUANTITY) : 1);
+
+// `stock` is how many buyers can order right now: a number for counted stock, null/undefined for a one-off item or when it
+// could not be read. Then only 1 can be ordered, which is also what checkout will ask for.
+export function effectiveQuantity(item: CartItem, stock: number | null | undefined): number {
+  const wanted = clampQuantity(item.quantity);
+  if (stock == null) return 1;
+  return Math.max(1, Math.min(wanted, stock));
+}
+
+export function setCartQuantity(items: readonly CartItem[], listingId: string, quantity: number): CartItem[] {
+  return items.map((i) => (i.listingId === listingId ? { ...i, quantity: clampQuantity(quantity) } : i));
+}
+
+export function cartTotal(items: readonly CartItem[], stock: Readonly<Record<string, number | null>> = {}): number {
+  return Math.round(items.reduce((sum, i) => sum + i.price * effectiveQuantity(i, stock[i.listingId]), 0) * 100) / 100;
 }
 
 // Reads whatever was stored, keeping only well-formed items, so a damaged value never breaks the screen.
@@ -49,6 +66,7 @@ export function parseCart(raw: string | null): CartItem[] {
         sellerName: typeof o.sellerName === 'string' ? o.sellerName : '',
         imagePath: typeof o.imagePath === 'string' ? o.imagePath : null,
         addedAt: typeof o.addedAt === 'string' ? o.addedAt : '',
+        quantity: clampQuantity(o.quantity),
       });
       if (out.length >= MAX_CART_ITEMS) break;
     }

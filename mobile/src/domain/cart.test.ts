@@ -34,3 +34,20 @@ test('damaged stored data becomes an empty or cleaned cart', () => {
   const c = parseCart(JSON.stringify([item('a'), { listingId: 'x' }, item('a'), { ...item('b'), price: 'free' }]));
   assert.deepEqual(c.map((i) => i.listingId), ['a']);
 });
+
+test('quantity: old carts count as 1, bad values are repaired, and the total follows the quantity', async () => {
+  const { effectiveQuantity, setCartQuantity, MAX_CART_QUANTITY } = await import('./cart');
+  const old = item('a', 10);
+  assert.equal(effectiveQuantity(old, 5), 1);
+  assert.equal(effectiveQuantity({ ...old, quantity: 3 }, 5), 3);
+  assert.equal(effectiveQuantity({ ...old, quantity: 9 }, 5), 5, 'never more than is available');
+  assert.equal(effectiveQuantity({ ...old, quantity: 3 }, null), 1, 'a one-off item is always 1');
+  assert.equal(effectiveQuantity({ ...old, quantity: 3 }, undefined), 1, 'unknown stock is treated as 1');
+  assert.equal(effectiveQuantity({ ...old, quantity: 3 }, 0), 1);
+  assert.equal(setCartQuantity([old], 'a', 2.5)[0]?.quantity, 1);
+  assert.equal(setCartQuantity([old], 'a', -4)[0]?.quantity, 1);
+  assert.equal(setCartQuantity([old], 'a', 99999)[0]?.quantity, MAX_CART_QUANTITY);
+  assert.equal(cartTotal([{ ...item('a', 10), quantity: 3 }, item('b', 5)], { a: 5, b: null }), 35);
+  const c = parseCart(JSON.stringify([{ ...item('a'), quantity: 'lots' }, { ...item('b'), quantity: 4 }, item('c')]));
+  assert.deepEqual(c.map((x) => x.quantity), [1, 4, 1]);
+});
