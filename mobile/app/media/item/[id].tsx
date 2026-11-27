@@ -4,8 +4,8 @@ import { Text, View } from 'react-native';
 
 import { useAuth } from '../../../src/auth/AuthProvider';
 import { Button, Chip, Field, Notice, SectionTitle } from '../../../src/components/ui';
-import { fetchPermissions, getContent, listCampaigns, publishContent, reviewContent, saveContent, submitContent, withdrawContent, type ContentDetail } from '../../../src/features/media/api';
-import { ACTION_LABEL, CHANNELS, CONTENT_KINDS, NEEDS_NOTE, STATUS_LABEL, contentActions, contentProblem, has, type ContentAction } from '../../../src/features/media/domain';
+import { fetchPermissions, getContent, listAssets, listCampaigns, publishContent, reviewContent, saveContent, submitContent, withdrawContent, type ContentDetail } from '../../../src/features/media/api';
+import { ACTION_LABEL, attachable, toggleId, formatBytes, CHANNELS, CONTENT_KINDS, NEEDS_NOTE, STATUS_LABEL, contentActions, contentProblem, has, type ContentAction } from '../../../src/features/media/domain';
 import { MediaScreen, styles as s, when } from '../../../src/features/media/ui';
 import { useLoad } from '../../../src/features/media/useLoad';
 import { friendlyError } from '../../../src/lib/errors';
@@ -18,6 +18,8 @@ export default function Item() {
   const perms = useLoad(fetchPermissions);
   const detail = useLoad<ContentDetail | null>(async () => (isNew ? null : getContent(id)), [id]);
   const campaigns = useLoad(listCampaigns);
+  const library = useLoad(() => listAssets('active'));
+  const [assetIds, setAssetIds] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [kind, setKind] = useState(kindParam ?? 'poster');
@@ -34,7 +36,8 @@ export default function Item() {
 
   useEffect(() => {
     if (c) { setTitle(c.title); setBody(c.body ?? ''); setKind(c.kind); setChannel(c.channel); setCampaignId(c.campaignId); }
-  }, [c?.id, c?.version]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [c?.id, c?.version]);
+  useEffect(() => { if (detail.data) setAssetIds(detail.data.assetIds); }, [detail.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isCreator = isNew || c?.createdBy === userId;
   const actions = c ? contentActions(c.status, p, isCreator) : [];
@@ -49,7 +52,7 @@ export default function Item() {
     if (problem) return setErr(problem);
     setBusy(true); setErr('');
     try {
-      const newId = await saveContent({ id: isNew ? null : id, kind, title: title.trim(), body, channel, campaignId, assetIds: detail.data?.assetIds ?? [] });
+      const newId = await saveContent({ id: isNew ? null : id, kind, title: title.trim(), body, channel, campaignId, assetIds });
       if (isNew) router.replace(`/media/item/${newId}` as never); else { setMsg('Saved. The earlier version is kept.'); await detail.reload(); }
     } catch (e) { setErr(friendlyError(e)); } finally { setBusy(false); }
   }
@@ -97,12 +100,21 @@ export default function Item() {
               </View>
             </>
           ) : null}
+          <SectionTitle>Files from the library</SectionTitle>
+          <Text style={s.meta}>Only files that passed the safety check can be attached (up to 10).</Text>
+          <View style={s.row}>
+            {attachable(library.data ?? []).map((a) => (
+              <Chip key={a.id} label={`${a.title} · ${formatBytes(a.sizeBytes)}`} selected={assetIds.includes(a.id)} onPress={() => setAssetIds((ids) => toggleId(ids, a.id))} />
+            ))}
+          </View>
+          {library.data && attachable(library.data).length === 0 ? <Text style={s.muted}>No checked files yet. Upload one in the Media Library.</Text> : null}
           <Button title={isNew ? 'Save draft' : 'Save changes'} loading={busy} onPress={() => void save()} />
         </>
       ) : c ? (
         <>
           <Text style={s.cardTitle}>{c.title}</Text>
           <Text style={s.muted}>{c.body ?? ''}</Text>
+          {assetIds.length > 0 ? <Text style={s.meta}>{`Attached: ${assetIds.map((id) => (library.data ?? []).find((a) => a.id === id)?.title ?? 'a file').join(', ')}`}</Text> : null}
         </>
       ) : null}
 

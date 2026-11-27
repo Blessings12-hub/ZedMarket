@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  attachable, toggleId, PAUSABLE,
   contentActions, contentProblem, deleteConfirmed, extensionFor, formatBytes, groupByDay, mediaSections, queueGroups, requestProblem, scanLabel, uploadProblem,
   type CalendarRow, type QueueItem,
 } from './domain';
@@ -122,4 +123,21 @@ test('request and content forms give friendly messages', () => {
   assert.match(contentProblem('A', '') ?? '', /title/);
   assert.match(contentProblem('Title', 'x'.repeat(5001)) ?? '', /5000/);
   assert.equal(contentProblem('Title', ''), null);
+});
+
+test('only clean, active files can be attached, and at most ten', () => {
+  const a = [
+    { id: '1', status: 'active', scanStatus: 'clean' }, { id: '2', status: 'active', scanStatus: 'pending' },
+    { id: '3', status: 'archived', scanStatus: 'clean' }, { id: '4', status: 'active', scanStatus: 'infected' },
+  ];
+  assert.deepEqual(attachable(a).map((x) => x.id), ['1']);
+  assert.deepEqual(toggleId([], 'a'), ['a']);
+  assert.deepEqual(toggleId(['a', 'b'], 'a'), ['b']);
+  const many = Array.from({ length: 10 }, (_, i) => String(i));
+  assert.equal(toggleId(many, 'x').length, 10);
+});
+
+test('only the three departments can be paused, never administrators or media', () => {
+  assert.deepEqual(Object.keys(PAUSABLE).sort(), ['finance', 'moderator', 'support']);
+  assert.ok(!('tech_admin' in PAUSABLE) && !('media' in PAUSABLE));
 });

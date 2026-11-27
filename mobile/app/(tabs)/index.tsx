@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
+import { AnnouncementBanner } from '../../src/components/AnnouncementBanner';
 import { AreaSheet } from '../../src/components/AreaSheet';
 import { DeliveryBar } from '../../src/components/DeliveryBar';
 import { FilterSheet } from '../../src/components/FilterSheet';
@@ -221,6 +222,7 @@ export default function BrowseScreen() {
 
   return (
     <View style={styles.screen}>
+      <AnnouncementBanner signedIn={signedIn} />
       {signedIn ? <DeliveryBar line={deliveryShort(places, myAddress)} onPress={editDeliveryLocation} /> : null}
       <View style={styles.searchRow}>
         <TextInput

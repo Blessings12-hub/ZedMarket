@@ -87,6 +87,7 @@ function AuthGate() {
       <Stack.Screen name="media/requests" options={{ title: 'Requests' }} />
       <Stack.Screen name="media/activity" options={{ title: 'Activity record' }} />
       <Stack.Screen name="media/people" options={{ title: 'Media staff' }} />
+      <Stack.Screen name="admin/access" options={{ title: 'Pause or restore access' }} />
       <Stack.Screen name="admin/index" options={{ title: 'Staff tools' }} />
       <Stack.Screen name="admin/listings" options={{ title: 'Listings to review' }} />
       <Stack.Screen name="admin/reports" options={{ title: 'Open reports' }} />
