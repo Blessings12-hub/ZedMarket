@@ -10,7 +10,8 @@ import { formatKwacha } from '../../src/domain/money';
 import { validateCheckout, type Fulfilment } from '../../src/domain/orders';
 import { fetchListing } from '../../src/features/listings/api';
 import type { ListingDetail } from '../../src/features/listings/types';
-import { isListingReserved, requestToBuy } from '../../src/features/orders/api';
+import { fetchStockInfo, isListingReserved, requestToBuy } from '../../src/features/orders/api';
+import { parseQuantity } from '../../src/features/orders/quantity';
 import { friendlyError } from '../../src/lib/errors';
 import { colors, radius, spacing } from '../../src/theme';
 
@@ -32,6 +33,8 @@ export default function Checkout() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [stock, setStock] = useState<number | null>(null); // null: a one-off item, or the count could not be read (then only 1 can be ordered)
+  const [qtyText, setQtyText] = useState('1');
 
   useEffect(() => {
     if (!listingId) return;
@@ -40,6 +43,7 @@ export default function Checkout() {
         const [detail, isReserved] = await Promise.all([fetchListing(listingId, true), isListingReserved(listingId)]);
         setListing(detail);
         setReserved(isReserved);
+        try { setStock(await fetchStockInfo(listingId)); } catch (e) { console.error('[checkout] stock count failed', e); setStock(null); }
       } catch (e) {
         setError(friendlyError(e));
       } finally {
@@ -75,10 +79,15 @@ export default function Checkout() {
       setError(coverageMessage(coverage).text);
       return;
     }
+    const q = parseQuantity(qtyText, stock);
+    if ('error' in q) {
+      setError(q.error);
+      return;
+    }
     setBusy(true);
     setError('');
     try {
-      const order = await requestToBuy(listing.id, { fulfilment, address, note, locationId: locationForCheck, savedAddressId: chosenSaved?.id ?? null });
+      const order = await requestToBuy(listing.id, { fulfilment, address, note, locationId: locationForCheck, savedAddressId: chosenSaved?.id ?? null, quantity: q.quantity });
       router.replace(`/order/${order.id}`);
     } catch (e) {
       setError(friendlyError(e));
@@ -152,6 +161,9 @@ export default function Checkout() {
         <Notice>You and the seller agree where and when to meet. Message them from the listing or the order.</Notice>
       )}
 
+      {stock !== null && stock > 0 ? (
+        <Field label={`How many? (${stock >= 20 ? '20 or more' : stock} available)`} value={qtyText} onChangeText={(v) => setQtyText(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
+      ) : null}
       <Field label="Note for the seller (optional)" value={note} onChangeText={setNote} multiline maxLength={300} />
 
       <View style={styles.card}>
