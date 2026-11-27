@@ -8,11 +8,14 @@
 - Partial fulfilment: the seller states how many were handed over; the total and stock follow it. The receipt shows both numbers.
 - App: quantity box on checkout (counted stock only), quantity lines on the order screen, branch choice when confirming, "how many handed over" for the seller, a "Stock per branch" screen from the Stock page.
 
-## Known limits
-- Analytics "items" still adds the unit price once per order, not times the quantity.
-- Payments stay disabled; when built they must charge the total after hand-over.
-- Cart checkout still orders one unit per item.
-- The count shown to buyers is capped at 20.
+## Limits from this report, now handled (migration 0032)
+- Analytics (completed value, sales report, sales by listing, listing performance) count price x quantity handed over. A new `orders.items_zmw` column holds it. Existing orders have quantity 1, so past numbers do not change.
+- The cart keeps a quantity per item (older saved carts count as 1). It shows a stepper only for counted stock, never promises more than is available, and passes the quantity to checkout. A one-off item is always 1.
+- The stock count shown to buyers is capped by the setting `listing.stock_display_cap` (starter value 100; 0 shows the exact count) instead of a fixed 20.
+
+## Still open (deliberately not touched)
+- Payments stay disabled. When built, they must charge the total after hand-over.
+- Delivery framework (chunk F) not started.
 - Not tested on real Supabase or a phone.
 
 ## Housekeeping
