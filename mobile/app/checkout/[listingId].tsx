@@ -18,7 +18,7 @@ import { colors, radius, spacing } from '../../src/theme';
 // Step before an order exists: choose collection or delivery and send the request.
 // Nothing is charged here. ZedMarket does not take or hold payment.
 export default function Checkout() {
-  const { listingId } = useLocalSearchParams<{ listingId: string }>();
+  const { listingId, quantity: quantityParam } = useLocalSearchParams<{ listingId: string; quantity?: string }>();
   const router = useRouter();
 
   const [listing, setListing] = useState<ListingDetail | null>(null);
@@ -34,7 +34,7 @@ export default function Checkout() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [stock, setStock] = useState<number | null>(null); // null: a one-off item, or the count could not be read (then only 1 can be ordered)
-  const [qtyText, setQtyText] = useState('1');
+  const [qtyText, setQtyText] = useState(/^\d{1,4}$/.test(quantityParam ?? '') ? (quantityParam as string) : '1');
 
   useEffect(() => {
     if (!listingId) return;
@@ -162,7 +162,7 @@ export default function Checkout() {
       )}
 
       {stock !== null && stock > 0 ? (
-        <Field label={`How many? (${stock >= 20 ? '20 or more' : stock} available)`} value={qtyText} onChangeText={(v) => setQtyText(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
+        <Field label={`How many? (${stock} available)`} value={qtyText} onChangeText={(v) => setQtyText(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" />
       ) : null}
       <Field label="Note for the seller (optional)" value={note} onChangeText={setNote} multiline maxLength={300} />
 
