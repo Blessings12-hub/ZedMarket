@@ -8,23 +8,41 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.zedmarket.app"
+      "bundleIdentifier": "com.zedmarket.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.zedmarket.app"
+      "package": "com.zedmarket.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1F5C41"
+      }
     },
     "web": {
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-image-picker",
         {
-          "photosPermission": "ZedMarket needs your photos so you can add pictures to your listings."
+          "photosPermission": "ZedMarket needs your photos so you can add pictures to your listings.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
-    ]
+    ],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1F5C41"
+    }
   }
 }
