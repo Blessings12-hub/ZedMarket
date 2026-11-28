@@ -9,6 +9,11 @@ import { colors, radius, spacing } from '../../src/theme';
 
 const SIGNAL_LABELS: Record<string, string> = {
   repeated_reports: 'Reported by several different people',
+  repeated_listing_text: 'The same seller posted the same words several times',
+  copied_listing_text: 'Several sellers posted the same words (possible copied scam ad)',
+  price_far_below: 'Price is far below similar items (too good to be true?)',
+  price_far_above: 'Price is far above similar items',
+  listing_churn: 'Posts items and deletes them within a day, again and again',
 };
 
 export default function RiskFlags() {

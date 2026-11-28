@@ -72,6 +72,7 @@ function SellerListing() {
       <Notice tone={st.tone === 'bad' ? 'error' : st.tone === 'wait' ? 'warning' : 'info'}>{st.next}</Notice>
       {item.moderation === 'rejected' && item.note ? <Text style={styles.err}>{`Reason: ${item.note}`}</Text> : null}
       {item.moderation === 'rejected' ? <Button title="Appeal this decision" variant="secondary" onPress={() => router.push({ pathname: '/appeal', params: { targetType: 'listing', targetId: item.id } })} /> : null}
+      {item.status === 'active' && item.moderation === 'approved' ? <Button title="Promote this listing" variant="secondary" onPress={() => router.push(`/promote/${item.id}`)} /> : null}
       <Button title="View listing" variant="secondary" onPress={() => router.push(`/listing/${item.id}`)} />
 
       <SectionTitle>Status history</SectionTitle>

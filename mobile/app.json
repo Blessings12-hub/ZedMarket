@@ -36,6 +36,12 @@
           "cameraPermission": false,
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#1F5C41"
+        }
       ]
     ],
     "icon": "./assets/icon.png",

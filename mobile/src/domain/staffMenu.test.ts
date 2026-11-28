@@ -9,7 +9,7 @@ test('no role, no menu', () => assert.deepEqual(staffMenu([]), []));
 
 test('each role sees only its own tools, plus the shared team tools', () => {
   assert.deepEqual(keys(['finance']), ['finance', 'stats', 'media_ask', 'jobs', 'votes', 'birthdays']);
-  assert.deepEqual(keys(['moderator']), ['listings', 'appeals', 'flags', 'reports', 'users', 'stats', 'media_ask', 'jobs', 'votes', 'birthdays']);
+  assert.deepEqual(keys(['moderator']), ['listings', 'appeals', 'promotions', 'flags', 'reports', 'users', 'stats', 'media_ask', 'jobs', 'votes', 'birthdays']);
   assert.ok(keys(['support']).includes('helpdesk') && keys(['support']).includes('verifications'));
   assert.ok(!keys(['support']).includes('listings') && !keys(['support']).includes('finance'));
   assert.ok(keys(['tech_admin']).includes('team') && keys(['tech_admin']).includes('audit'));
