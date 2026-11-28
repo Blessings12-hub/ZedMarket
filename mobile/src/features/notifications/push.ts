@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import { registerPushToken, unregisterPushToken } from './api';
@@ -23,7 +24,10 @@ export async function enablePush(projectId?: string): Promise<'on' | 'denied' | 
     let { status } = await N.getPermissionsAsync();
     if (status !== 'granted') status = (await N.requestPermissionsAsync()).status;
     if (status !== 'granted') return 'denied';
-    const res = await N.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
+    // The project id appears in app.json (extra.eas.projectId) once the owner runs `eas init`.
+    const id = projectId ?? (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas?.projectId;
+    if (!id) return 'unavailable';
+    const res = await N.getExpoPushTokenAsync({ projectId: id });
     currentToken = res.data as string;
     await registerPushToken(currentToken, Platform.OS === 'ios' ? 'ios' : 'android');
     return 'on';
@@ -49,4 +53,17 @@ export function onNotificationTapped(open: (link: string | null) => void): () =>
     open(typeof link === 'string' ? link : null);
   });
   return () => sub.remove();
+}
+
+// Show a banner when a notification arrives while the app is open. Call once when the app starts.
+export function showPushWhileOpen(): void {
+  const N = loadModule();
+  if (!N || Platform.OS === 'web') return;
+  try {
+    N.setNotificationHandler({
+      handleNotification: async () => ({ shouldPlaySound: false, shouldSetBadge: false, shouldShowBanner: true, shouldShowList: true }),
+    });
+  } catch {
+    // Push is optional: never stop the app because of it.
+  }
 }

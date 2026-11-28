@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, View } from 're
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { SharePickup } from '../../src/components/SharePickup';
+import { OwnDeliveryCard } from '../../src/features/delivery/OwnDeliveryCard';
 import { DeliverToCard } from '../../src/features/orders/DeliverToCard';
 import { deliverTo } from '../../src/features/orders/deliverTo';
 import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
@@ -234,6 +235,9 @@ export default function OrderScreen() {
         const d = deliverTo({ role, fulfilment: order.fulfilment, status: order.status, cancelKind: order.cancelKind, handedOverAt: order.handedOverAt, buyerName: order.buyerName, deliveryAddress: order.deliveryAddress, deliveryFee: order.deliveryFee, buyerNote: order.buyerNote });
         return d ? <DeliverToCard info={d} /> : null;
       })()}
+      {order.fulfilment === 'delivery' && (role === 'buyer' || role === 'seller') ? (
+        <OwnDeliveryCard orderId={order.id} role={role} canStart={order.status === 'confirmed' && !order.handedOverAt} onChanged={load} />
+      ) : null}
       {role === 'buyer' && payOn && canStartPayment(order.status, 'buyer', orderPayments) ? (
         <Button title="Pay with mobile money" onPress={() => router.push(`/pay/${order.id}`)} />
       ) : null}

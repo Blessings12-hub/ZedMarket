@@ -16,6 +16,7 @@ import { describeSearch } from '../../src/domain/search';
 import {
   clearRecentlyViewed,
   fetchFeatured,
+  fetchPromoted,
   fetchListings,
   fetchRecentlyViewed,
   fetchRecommended,
@@ -39,12 +40,13 @@ import { colors, radius, spacing } from '../../src/theme';
 import { showAlert } from '../../src/lib/dialog';
 
 type Rails = {
+  promoted: ListingSummary[];
   featured: ListingSummary[];
   trending: ListingSummary[];
   recommended: ListingSummary[];
   recent: ListingSummary[];
 };
-const emptyRails: Rails = { featured: [], trending: [], recommended: [], recent: [] };
+const emptyRails: Rails = { promoted: [], featured: [], trending: [], recommended: [], recent: [] };
 
 // One rail failing (for example on a weak connection) must not hide the others.
 const safely = (p: Promise<ListingSummary[]>) => p.catch(() => [] as ListingSummary[]);
@@ -116,13 +118,14 @@ export default function BrowseScreen() {
 
   // Rails refresh every time the tab comes back into view, so "recently viewed" is current.
   const loadRails = useCallback(async () => {
-    const [featured, trending, recommended, recent] = await Promise.all([
+    const [promoted, featured, trending, recommended, recent] = await Promise.all([
+      safely(fetchPromoted()),
       safely(fetchFeatured()),
       safely(fetchTrending()),
       signedIn ? safely(fetchRecommended()) : Promise.resolve([]),
       signedIn ? safely(fetchRecentlyViewed()) : Promise.resolve([]),
     ]);
-    setRails({ featured, trending, recommended, recent });
+    setRails({ promoted, featured, trending, recommended, recent });
   }, [signedIn]);
 
   useFocusEffect(
@@ -202,6 +205,7 @@ export default function BrowseScreen() {
 
       {!searching ? (
         <View style={{ paddingTop: spacing.sm }}>
+ <ListingRail title="Promoted" note="Paid promotion by sellers" items={rails.promoted} />
           <ListingRail title="Featured" note="Picked by the ZedMarket team" items={rails.featured} />
           <ListingRail title="Recommended for you" note="Based on what you have looked at and saved" items={rails.recommended} />
           <ListingRail title="Trending this week" items={rails.trending} />

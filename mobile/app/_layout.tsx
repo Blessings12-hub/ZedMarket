@@ -11,6 +11,7 @@ import { readWelcomeSeen, welcomeSeenNow } from '../src/lib/welcomeSeen';
 
 import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
 import { isPublicRoute } from '../src/domain/routes';
+import { onNotificationTapped, showPushWhileOpen } from '../src/features/notifications/push';
 import { supabaseConfigured } from '../src/lib/supabase';
 import { colors } from '../src/theme';
 
@@ -23,6 +24,13 @@ function AuthGate() {
   // Has this phone shown the welcome screens to this person? Unknown until the phone answers.
   const [welcomeSeen, setWelcomeSeen] = useState<boolean | null>(null);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
+
+  useEffect(() => {
+    showPushWhileOpen();
+    return onNotificationTapped((link) => {
+      if (link && link.startsWith('/')) router.push(link as never);
+    });
+  }, [router]);
 
   useEffect(() => {
     setCurrentRoute(`/${segments.join('/')}`);
@@ -170,6 +178,8 @@ function AuthGate() {
       <Stack.Screen name="legal/terms" options={{ title: 'Terms of Use' }} />
       <Stack.Screen name="legal/privacy" options={{ title: 'Privacy Notice' }} />
       <Stack.Screen name="admin/health" options={{ title: 'App health' }} />
+      <Stack.Screen name="admin/promotions" options={{ title: 'Promotion requests' }} />
+      <Stack.Screen name="promote/[listingId]" options={{ title: 'Promote a listing' }} />
     </Stack>
   );
 }

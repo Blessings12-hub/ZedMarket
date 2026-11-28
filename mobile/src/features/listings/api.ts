@@ -157,6 +157,7 @@ export async function fetchListings(
   return rpcListings('search_listings', args);
 }
 
+export const fetchPromoted = () => rpcListings('promoted_listings_now', { p_limit: 10 });
 export const fetchFeatured = () => rpcListings('featured_listings_now', { p_limit: 10 });
 export const fetchTrending = () => rpcListings('trending_listings', { p_days: 7, p_limit: 10 });
 export const fetchNearby = (locationId: number) =>

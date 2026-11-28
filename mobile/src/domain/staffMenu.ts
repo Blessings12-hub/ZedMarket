@@ -16,6 +16,7 @@ const SECTIONS: { title: string; items: StaffMenuItem[] }[] = [
     items: [
       { key: 'listings', title: 'Listings to review', note: 'Approve or reject products waiting for a check', href: '/admin/listings', allowed: canModerate },
       { key: 'appeals', title: 'Appeals', note: 'Decisions people have asked us to look at again', href: '/admin/appeals', allowed: canModerate },
+      { key: 'promotions', title: 'Promotion requests', note: 'Paid promotions waiting for approval', href: '/admin/promotions', allowed: canModerate },
       { key: 'flags', title: 'Risk flags', note: 'Accounts and listings the system has marked', href: '/admin/flags', allowed: canModerate },
       { key: 'reports', title: 'Reports', note: 'Reports from buyers and sellers', href: '/admin/reports', allowed: canHandleReports },
     ],
