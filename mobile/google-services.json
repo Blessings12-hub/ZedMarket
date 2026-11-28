@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "138724078071",
+    "project_id": "zedmarket-32731",
+    "storage_bucket": "zedmarket-32731.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:138724078071:android:6d9f717f1d52c5d86e7ef2",
+        "android_client_info": {
+          "package_name": "com.zedmarket.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA1suCd-L270zS9qzzyCZ_7_hp0WKaDfhE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
