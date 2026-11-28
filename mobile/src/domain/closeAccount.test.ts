@@ -16,3 +16,13 @@ test('the seller warning says a buyer account is kept and the business warning s
   assert.ok(SELLER_CLOSE.points.some((p) => /buyer account/i.test(p)));
   assert.ok(BUSINESS_CLOSE.points.some((p) => /only the owner/i.test(p)));
 });
+
+import { ACCOUNT_DELETE } from './closeAccount';
+
+test('the account deletion warning is clear about what goes and what stays', () => {
+  assert.match(ACCOUNT_DELETE.intro, /cannot be undone/i);
+  assert.ok(ACCOUNT_DELETE.points.some((p) => /Deleted user/.test(p)));
+  assert.ok(ACCOUNT_DELETE.points.some((p) => /open orders/i.test(p)));
+  assert.ok(ACCOUNT_DELETE.points.some((p) => /stay/i.test(p)));
+  assert.notEqual(ACCOUNT_DELETE.confirm, ACCOUNT_DELETE.button);
+});

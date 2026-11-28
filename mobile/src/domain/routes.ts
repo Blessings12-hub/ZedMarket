@@ -2,7 +2,7 @@
 // Browsing is open to everyone so people can see what is for sale before they make an account.
 // Buying, messaging, saving, selling and account screens need a signed-in user.
 
-const PUBLIC_TOP_LEVEL = new Set(['(auth)', 'listing', 'seller']);
+const PUBLIC_TOP_LEVEL = new Set(['(auth)', 'listing', 'seller', 'legal', 'safety']);
 
 // `segments` is what Expo Router's useSegments() returns, for example
 // ['(tabs)'] for the browse tab, ['(tabs)', 'sell'] for the sell tab, ['listing', '[id]'] for a listing.

@@ -36,3 +36,8 @@ test('Media rows follow permissions, not just the role', () => {
   const m = staffMenu(['media'], media).flatMap((s) => s.items.map((i) => i.key));
   for (const forbidden of ['finance', 'verifications', 'users', 'team', 'audit', 'listings']) assert.ok(!m.includes(forbidden));
 });
+
+test('the app health page is for technical administrators only', () => {
+  assert.ok(keys(['tech_admin']).includes('health'));
+  for (const r of ['support', 'moderator', 'finance'] as const) assert.ok(!keys([r]).includes('health'), r);
+});

@@ -1,8 +1,13 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
+import { DangerConfirm } from '../../src/components/DangerConfirm';
 import { Button, Field, Notice, SectionTitle } from '../../src/components/ui';
+import { ACCOUNT_DELETE } from '../../src/domain/closeAccount';
+import { deleteMyAccount } from '../../src/features/launch/api';
+import { supabase } from '../../src/lib/supabase';
 import { changePassword, resendConfirmation, sendResetEmail, signOutOtherDevices } from '../../src/features/account-hub/api';
 import { emailStatus, passwordProblem } from '../../src/features/account-hub/hub';
 import { friendlyError } from '../../src/lib/errors';
@@ -10,6 +15,9 @@ import { colors, spacing } from '../../src/theme';
 
 export default function Security() {
   const { session } = useAuth();
+  const router = useRouter();
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const email = session?.user.email ?? '';
   const confirmed = emailStatus(session?.user.email_confirmed_at) === 'verified';
   const [next, setNext] = useState('');
@@ -21,6 +29,20 @@ export default function Security() {
   async function run(name: string, job: () => Promise<void>, ok: string) {
     setBusy(name); setError(''); setDone('');
     try { await job(); setDone(ok); } catch (e) { setError(friendlyError(e)); } finally { setBusy(''); }
+  }
+
+  async function deleteAccount() {
+    setDeleting(true); setDeleteError('');
+    try {
+      await deleteMyAccount();
+      // The account can no longer sign in, so end this session on the phone too.
+      await supabase.auth.signOut().catch(() => undefined);
+      router.replace('/sign-in');
+    } catch (e) {
+      setDeleteError(friendlyError(e));
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -53,6 +75,9 @@ export default function Security() {
       <Text style={styles.text}>If you signed in on a phone you no longer use, you can sign it out. This phone stays signed in.</Text>
       <Button title="Sign out of my other devices" variant="secondary" loading={busy === 'others'} onPress={() => run('others', signOutOtherDevices, 'Other devices were signed out.')} />
       <Text style={styles.small}>A list of each device is not available yet. Phone number verification needs an SMS service and is not set up.</Text>
+
+      <SectionTitle>Delete account</SectionTitle>
+      <DangerConfirm copy={ACCOUNT_DELETE} busy={deleting} error={deleteError} onConfirm={deleteAccount} />
     </ScrollView>
   );
 }

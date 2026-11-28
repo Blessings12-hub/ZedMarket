@@ -56,3 +56,9 @@ test('everything that needs an account stays private', () => {
     assert.equal(isPublicRoute(segments), false, segments.join('/'));
   }
 });
+
+test('the terms, privacy notice and safety tips are open to guests, so they can be read before signing up', () => {
+  for (const segments of [['legal', 'terms'], ['legal', 'privacy'], ['safety']]) assert.equal(isPublicRoute(segments), true, segments.join('/'));
+  // The welcome screens, invite page and app settings belong to a signed-in person.
+  for (const segments of [['welcome'], ['invite'], ['settings', 'app'], ['admin', 'health']]) assert.equal(isPublicRoute(segments), false, segments.join('/'));
+});

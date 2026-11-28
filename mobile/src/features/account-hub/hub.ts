@@ -143,6 +143,9 @@ export function settingsSection(): HubSection {
       { key: 'addresses', title: 'Delivery addresses', subtitle: 'Where your orders are delivered', href: at('/addresses') },
       { key: 'security', title: 'Security and login', subtitle: 'Password, email and other devices', href: at('/settings/security') },
       { key: 'notification-settings', title: 'Notification preferences', subtitle: 'Choose what you are told about', href: at('/notification-settings') },
+      { key: 'data-saver', title: 'Data saver', subtitle: 'Load fewer photos on mobile data', href: at('/settings/app') },
+      { key: 'invite', title: 'Invite friends', subtitle: 'Share your invite code', href: at('/invite') },
+      { key: 'safety', title: 'Safety tips', subtitle: 'Buying and paying safely', href: at('/safety') },
     ],
   };
 }

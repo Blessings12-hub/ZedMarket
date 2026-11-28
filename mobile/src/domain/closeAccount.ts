@@ -67,3 +67,20 @@ export const BUSINESS_CLOSE: CloseCopy = {
   keep: 'Keep this business',
   done: 'The business was deleted.',
 };
+
+// Deleting the whole ZedMarket account, for any buyer. The database refuses it while there are open orders and for staff.
+export const ACCOUNT_DELETE: CloseCopy = {
+  heading: 'Delete your ZedMarket account',
+  button: 'Delete my account',
+  intro: 'This removes your account from ZedMarket. It cannot be undone.',
+  points: [
+    'Your name is replaced with "Deleted user", and your email, about line, saved items, saved searches and delivery addresses are removed.',
+    'You are signed out everywhere and can no longer sign in with this email.',
+    'If you sell, your selling account and any business you own are deleted too, and their listings come off sale.',
+    'Orders, chats and reviews stay, so the other person keeps their record. They will see "Deleted user".',
+    'You cannot do this while you have open orders. Finish or cancel them first.',
+  ],
+  confirm: 'Yes, delete my account for good',
+  keep: 'Keep my account',
+  done: 'Your account was deleted.',
+};

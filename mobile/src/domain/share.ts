@@ -28,3 +28,9 @@ export function sellerShareMessage(input: { name: string; link: string | null })
   const head = `${input.name} on ZedMarket`;
   return input.link ? `${head}\n${input.link}` : head;
 }
+
+// Opens WhatsApp with the message already written, so the person only chooses who to send it to. It carries only the
+// text given; no phone number is added or looked up.
+export function whatsappShareUrl(message: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}
