@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Linking, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { ListingRail } from '../../src/components/ListingRail';
@@ -28,7 +28,8 @@ import type { ListingDetail, ListingSummary, SellerStats } from '../../src/featu
 import { isListingReserved } from '../../src/features/orders/api';
 import { conditionLabel } from '../../src/domain/listing';
 import { formatKwacha } from '../../src/domain/money';
-import { listingLink, listingShareMessage, webBase } from '../../src/domain/share';
+import { listingLink, listingShareMessage, webBase, whatsappShareUrl } from '../../src/domain/share';
+import { useDataSaver } from '../../src/lib/dataSaver';
 import { friendlyError } from '../../src/lib/errors';
 import { listingImageUrl } from '../../src/lib/supabase';
 import { colors, radius, spacing } from '../../src/theme';
@@ -53,6 +54,8 @@ export default function ListingScreen() {
   const [reserved, setReserved] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const saver = useDataSaver();
+  const [morePhotos, setMorePhotos] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -108,6 +111,15 @@ export default function ListingScreen() {
       { text: 'Sign in', onPress: () => router.push('/sign-in') },
     ]);
     return true;
+  }
+
+  async function shareWhatsApp() {
+    const link = listingLink(webBase(process.env.EXPO_PUBLIC_WEB_URL), listing!.id);
+    try {
+      await Linking.openURL(whatsappShareUrl(listingShareMessage({ title: listing!.title, price: listing!.price, link })));
+    } catch {
+      showAlert('WhatsApp could not be opened', 'Use Share instead.');
+    }
   }
 
   async function shareListing() {
@@ -183,13 +195,18 @@ export default function ListingScreen() {
     <ScrollView style={styles.screen} contentContainerStyle={{ paddingBottom: spacing.xl }}>
       {listing.imagePaths.length > 0 ? (
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-          {listing.imagePaths.map((path) => (
+          {(saver && !morePhotos ? listing.imagePaths.slice(0, 1) : listing.imagePaths).map((path) => (
             <RetryImage key={path} source={{ uri: listingImageUrl(path) }} style={styles.photo} resizeMode="cover" />
           ))}
         </ScrollView>
       ) : (
         <View style={[styles.photo, { backgroundColor: colors.primarySoft }]} />
       )}
+      {saver && !morePhotos && listing.imagePaths.length > 1 ? (
+        <View style={{ padding: spacing.md }}>
+          <Button title={`Load ${listing.imagePaths.length - 1} more photo${listing.imagePaths.length === 2 ? '' : 's'}`} variant="secondary" onPress={() => setMorePhotos(true)} />
+        </View>
+      ) : null}
 
       <View style={styles.body}>
         {!available ? (
@@ -268,6 +285,7 @@ export default function ListingScreen() {
             <Button title="Message seller" variant="secondary" onPress={messageSeller} disabled={!available || busy} />
             <Button title={saved ? 'Remove from saved' : 'Save for later'} variant="secondary" onPress={toggleSaved} />
             <Button title="Share" variant="secondary" onPress={shareListing} />
+            <Button title="Share on WhatsApp" variant="secondary" onPress={shareWhatsApp} />
             <Button
               title="Report this listing"
               variant="danger"

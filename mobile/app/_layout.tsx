@@ -1,7 +1,13 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+
+import { Button } from '../src/components/ui';
+import { shouldShowWelcome } from '../src/domain/welcome';
+import { loadDataSaver } from '../src/lib/dataSaver';
+import { installErrorReporting, reportError, setCurrentRoute } from '../src/lib/report';
+import { readWelcomeSeen, welcomeSeenNow } from '../src/lib/welcomeSeen';
 
 import { AuthProvider, useAuth } from '../src/auth/AuthProvider';
 import { isPublicRoute } from '../src/domain/routes';
@@ -11,16 +17,37 @@ import { colors } from '../src/theme';
 // Signed-out visitors can browse, open listings and seller pages, and see the sign-in screens.
 // Anything that needs an account sends them to sign in. Signed-in users never see the (auth) screens.
 function AuthGate() {
-  const { session, loading } = useAuth();
+  const { session, userId, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  // Has this phone shown the welcome screens to this person? Unknown until the phone answers.
+  const [welcomeSeen, setWelcomeSeen] = useState<boolean | null>(null);
+  const [welcomeChecked, setWelcomeChecked] = useState(false);
+
+  useEffect(() => {
+    setCurrentRoute(`/${segments.join('/')}`);
+  }, [segments]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setWelcomeChecked(false);
+    if (!userId) return;
+    readWelcomeSeen(userId).then((seen) => {
+      if (cancelled) return;
+      setWelcomeSeen(seen);
+      setWelcomeChecked(true);
+    });
+    return () => { cancelled = true; };
+  }, [userId]);
 
   useEffect(() => {
     if (loading) return;
+    const showWelcome = !!userId && !welcomeSeenNow(userId) && shouldShowWelcome(welcomeSeen, welcomeChecked);
     const inAuthGroup = segments[0] === '(auth)';
     if (!session && !isPublicRoute(segments)) router.replace('/sign-in');
-    else if (session && inAuthGroup) router.replace('/');
-  }, [session, loading, segments, router]);
+    else if (session && inAuthGroup) router.replace(showWelcome ? '/welcome' : '/');
+    else if (session && showWelcome && segments[0] === '(tabs)') router.replace('/welcome');
+  }, [session, userId, loading, segments, router, welcomeSeen, welcomeChecked]);
 
   if (loading) {
     return (
@@ -136,6 +163,13 @@ function AuthGate() {
       <Stack.Screen name="trust/users" options={{ title: 'Users' }} />
       <Stack.Screen name="trust/user/[id]" options={{ title: 'User profile' }} />
       <Stack.Screen name="trust/audit" options={{ title: 'Audit trail' }} />
+      <Stack.Screen name="welcome" options={{ headerShown: false }} />
+      <Stack.Screen name="invite" options={{ title: 'Invite friends' }} />
+      <Stack.Screen name="safety" options={{ title: 'Safety tips' }} />
+      <Stack.Screen name="settings/app" options={{ title: 'Data saver' }} />
+      <Stack.Screen name="legal/terms" options={{ title: 'Terms of Use' }} />
+      <Stack.Screen name="legal/privacy" options={{ title: 'Privacy Notice' }} />
+      <Stack.Screen name="admin/health" options={{ title: 'App health' }} />
     </Stack>
   );
 }
@@ -153,7 +187,27 @@ function NotConfigured() {
   );
 }
 
+// Shown when a screen crashes, instead of a white page. The crash is reported to the team, and the person can try again.
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    reportError(error);
+  }, [error]);
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12, backgroundColor: colors.background }}>
+      <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>Something went wrong</Text>
+      <Text style={{ fontSize: 15, color: colors.muted, textAlign: 'center', lineHeight: 22 }}>
+        We have told the ZedMarket team. Please try again, and if it keeps happening, use Help to message us.
+      </Text>
+      <Button title="Try again" onPress={retry} />
+    </View>
+  );
+}
+
 export default function RootLayout() {
+  useEffect(() => {
+    installErrorReporting();
+    void loadDataSaver();
+  }, []);
   if (!supabaseConfigured) return <NotConfigured />;
   return (
     <AuthProvider>

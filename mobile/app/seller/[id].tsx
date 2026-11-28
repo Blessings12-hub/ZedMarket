@@ -1,11 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '../../src/auth/AuthProvider';
 import { ListingCard } from '../../src/components/ListingCard';
 import { Button, Notice, SectionTitle, VerifiedBadge } from '../../src/components/ui';
-import { sellerLink, sellerShareMessage, webBase } from '../../src/domain/share';
+import { replySpeedLabel, type ReplySpeed } from '../../src/domain/replySpeed';
+import { sellerLink, sellerShareMessage, webBase, whatsappShareUrl } from '../../src/domain/share';
+import { fetchReplySpeed } from '../../src/features/launch/api';
 import { fetchListings, fetchSellerPage, PAGE_SIZE } from '../../src/features/listings/api';
 import { defaultFilters, type ListingSummary, type SellerPage } from '../../src/features/listings/types';
 import { fetchReviewsAbout, type ReviewItem } from '../../src/features/trust/api';
@@ -27,6 +29,7 @@ export default function SellerStorefront() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
+  const [speed, setSpeed] = useState<ReplySpeed | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -40,6 +43,7 @@ export default function SellerStorefront() {
           return;
         }
         setSeller(profile);
+        fetchReplySpeed(id).then((s) => { if (!cancelled) setSpeed(s); });
         const first = await fetchListings('', defaultFilters, 0, id);
         if (cancelled) return;
         setItems(first);
@@ -56,6 +60,16 @@ export default function SellerStorefront() {
       cancelled = true;
     };
   }, [id, session]);
+
+  async function shareWhatsApp() {
+    if (!seller) return;
+    const link = sellerLink(webBase(process.env.EXPO_PUBLIC_WEB_URL), seller.sellerId);
+    try {
+      await Linking.openURL(whatsappShareUrl(sellerShareMessage({ name: seller.displayName, link })));
+    } catch {
+      setError('WhatsApp could not be opened. Use Share instead.');
+    }
+  }
 
   const loadMore = useCallback(async () => {
     if (!id || finished || loading) return;
@@ -101,6 +115,7 @@ export default function SellerStorefront() {
       <View style={styles.card}>
         <Text style={styles.name}>{seller.displayName}</Text>
         <VerifiedBadge level={seller.level} />
+        {replySpeedLabel(speed) ? <Text style={styles.reply}>{replySpeedLabel(speed)}</Text> : null}
         {seller.bio ? <Text style={styles.bio}>{seller.bio}</Text> : null}
         <Text style={styles.meta}>Member since {since}</Text>
         <Text style={styles.meta}>
@@ -110,6 +125,7 @@ export default function SellerStorefront() {
           {seller.completedOrders > 0 ? ` · ${seller.completedOrders} completed order${seller.completedOrders === 1 ? '' : 's'}` : ''}
         </Text>
         <Button title="Share this seller" variant="secondary" onPress={shareStorefront} />
+        <Button title="Share on WhatsApp" variant="secondary" onPress={shareWhatsApp} />
       </View>
       {error ? <Notice tone="error">{error}</Notice> : null}
       <SectionTitle>{`For sale (${seller.activeListings})`}</SectionTitle>
@@ -167,6 +183,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, backgroundColor: colors.background },
   head: { padding: spacing.lg, gap: spacing.md },
+  reply: { fontSize: 13, color: colors.muted },
   card: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.xs },
   name: { fontSize: 22, fontWeight: '700', color: colors.text },
   bio: { fontSize: 15, lineHeight: 22, color: colors.text },

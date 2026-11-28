@@ -38,6 +38,7 @@ const SECTIONS: { title: string; items: StaffMenuItem[] }[] = [
   {
     title: 'Platform',
     items: [
+      { key: 'health', title: 'App health', note: 'Crashes, late tickets and stuck queues in one place', href: '/admin/health', allowed: canManageTeam },
       { key: 'stats', title: 'Statistics', note: 'Platform numbers', href: '/admin/stats', allowed: (r) => canSeeFinance(r) || canReadTrust(r) || canManageTeam(r) },
       { key: 'team', title: 'Staff team', note: 'Who has which staff role', href: '/admin/team', allowed: canManageTeam },
       { key: 'access', title: 'Pause or restore access', note: 'Switch a department off or on for one person', href: '/admin/access', allowed: canManageTeam },

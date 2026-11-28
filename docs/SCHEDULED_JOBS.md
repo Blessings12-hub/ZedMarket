@@ -53,3 +53,5 @@ Nothing runs these yet; they need a worker you provide (an Edge Function or scri
 
 ## Business application documents
 Closing a business (`business_close`) schedules its application documents for purge with the same retention worker as seller documents. The worker, and the malware scanner that moves documents from `pending` to `clean`, are still not built: until the scanner exists no business document can be opened by staff, so no business can be approved in production.
+
+App crash log: `select cron.schedule('zedmarket-client-errors', '41 3 * * *', $$select public.purge_old_client_errors()$$);` deletes crash reports older than 30 days. Granted to `service_role` only. If it is never scheduled the table only grows slowly, because the same crash in the same hour is stored once and at most 500 different crashes are kept per hour. Untested on a real Supabase project.

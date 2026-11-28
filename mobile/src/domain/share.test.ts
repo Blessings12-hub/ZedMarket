@@ -31,3 +31,13 @@ test('share text carries the price in kwacha and a link only when there is one',
   assert.equal(noLink.includes('http'), false);
   assert.equal(sellerShareMessage({ name: 'Mwila', link: null }), 'Mwila on ZedMarket');
 });
+
+import { whatsappShareUrl } from './share';
+
+test('the WhatsApp link carries the whole message, safely encoded', () => {
+  const url = whatsappShareUrl('Chair for K100 on ZedMarket\nhttps://zed.example/listing/1?a=b&c=d');
+  assert.ok(url.startsWith('https://wa.me/?text='));
+  assert.equal(decodeURIComponent(url.slice('https://wa.me/?text='.length)), 'Chair for K100 on ZedMarket\nhttps://zed.example/listing/1?a=b&c=d');
+  assert.equal(url.includes(' '), false);
+  assert.equal(url.includes('\n'), false);
+});
