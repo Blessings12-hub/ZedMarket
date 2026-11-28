@@ -49,6 +49,13 @@
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#1F5C41"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6a93dc28-1b45-4d4f-8bc9-1f97d3b0af44"
+      }
+    },
+    "owner": "blessings_12"
   }
 }
